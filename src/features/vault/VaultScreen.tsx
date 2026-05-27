@@ -1,9 +1,15 @@
 import { useState, useCallback, useRef } from "react";
-import { Database, Shield, WifiOff, UserX } from "lucide-react";
+import { open } from "@tauri-apps/plugin-dialog";
+import { Database, Shield, WifiOff, UserX, FileWarning } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { VaultCard } from "@/components/vault/VaultCard";
-import { useAppStore } from "@/state/app-store";
+import { useAppStore, type RecentSource } from "@/state/app-store";
+import {
+  openVault,
+  discoverPalace,
+  parseMempalace,
+} from "@/lib/tauri";
 import { cn } from "@/lib/utils";
 
 const featureBadges = [
@@ -15,8 +21,51 @@ const featureBadges = [
 
 export function VaultScreen() {
   const recentSources = useAppStore((s) => s.recentSources);
+  const addRecentSource = useAppStore((s) => s.addRecentSource);
+  const setActiveSource = useAppStore((s) => s.setActiveSource);
+  const setActiveView = useAppStore((s) => s.setActiveView);
+
   const [isDragging, setIsDragging] = useState(false);
+  const [isOpening, setIsOpening] = useState(false);
+  const [openError, setOpenError] = useState<string | null>(null);
   const dropRef = useRef<HTMLDivElement>(null);
+
+  const handleOpenFile = useCallback(async () => {
+    setIsOpening(true);
+    setOpenError(null);
+
+    try {
+      // Open native file dialog for supported file types
+      const selected = await open({
+        multiple: false,
+        filters: [
+          {
+            name: "Databases & Config",
+            extensions: ["db", "sqlite", "sqlite3", "yaml", "yml"],
+          },
+          {
+            name: "SQLite Database",
+            extensions: ["db", "sqlite", "sqlite3"],
+          },
+          {
+            name: "YAML Config",
+            extensions: ["yaml", "yml"],
+          },
+        ],
+      });
+
+      if (!selected) {
+        setIsOpening(false);
+        return; // User cancelled
+      }
+
+      await openDataSource(selected as string);
+    } catch (err) {
+      setOpenError(String(err));
+    }
+
+    setIsOpening(false);
+  }, []);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -30,16 +79,97 @@ export function VaultScreen() {
     setIsDragging(false);
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
-    // TODO: handle file drop via Tauri dialog
+
+    // Web drops give us file names — but in Tauri, drag-drop from Finder
+    // gives file system paths via the webview. We need to extract the path.
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length === 0) return;
+
+    const file = files[0];
+    const path = (file as unknown as { path: string }).path || file.name;
+    if (!path) return;
+
+    setIsOpening(true);
+    setOpenError(null);
+
+    try {
+      await openDataSource(path);
+    } catch (err) {
+      setOpenError(String(err));
+    }
+
+    setIsOpening(false);
   }, []);
 
-  const handleOpenFile = useCallback(async () => {
-    // TODO: Tauri file dialog for SQLite/ChromaDB/YAML
-  }, []);
+  const openDataSource = async (path: string) => {
+    const lower = path.toLowerCase();
+
+    if (lower.endsWith(".yaml") || lower.endsWith(".yml")) {
+      // MemPalace YAML
+      const palace = await parseMempalace(path);
+      const source: RecentSource = {
+        path,
+        fileName: path.split("/").pop() || path,
+        type: "mempalace",
+        openedAt: new Date().toISOString(),
+        summary: `${palace.totalWings} wings, ${palace.totalRooms} rooms, ${palace.totalDrawers} drawers`,
+      };
+      addRecentSource(source);
+      setActiveSource(source);
+      setActiveView("workspace");
+      return;
+    }
+
+    // Try ChromaDB directory (has chroma.sqlite3 inside)
+    if (!lower.endsWith(".db") && !lower.endsWith(".sqlite") && !lower.endsWith(".sqlite3")) {
+      // Could be a ChromaDB persistence directory
+      try {
+        const discovery = await discoverPalace(path);
+        const source: RecentSource = {
+          path,
+          fileName: path.split("/").pop() || path,
+          type: "chromadb",
+          openedAt: new Date().toISOString(),
+          summary: `${discovery.collectionCount} collections, ${discovery.totalDocuments} documents`,
+        };
+        addRecentSource(source);
+        setActiveSource(source);
+        setActiveView("workspace");
+        return;
+      } catch {
+        // Not a ChromaDB directory either
+        throw new Error(
+          `Unsupported file type. Please open a .db, .sqlite, .sqlite3, or .yaml file, or a ChromaDB persistence directory.`
+        );
+      }
+    }
+
+    // SQLite database
+    try {
+      const vault = await openVault(path);
+      const source: RecentSource = {
+        path,
+        fileName: vault.fileName,
+        type: "sqlite",
+        openedAt: vault.openedAt,
+        summary: `${vault.tableCount} tables, ${formatBytes(vault.sizeBytes)}`,
+      };
+      addRecentSource(source);
+      setActiveSource(source);
+      setActiveView("workspace");
+    } catch (err) {
+      throw new Error(`Failed to open database: ${err}`);
+    }
+  };
+
+  const handleRecentClick = (source: RecentSource) => {
+    setActiveSource(source);
+    setActiveView("workspace");
+  };
 
   return (
     <div className="flex-1 flex flex-col h-full relative overflow-hidden bg-[#0b0b10]">
@@ -92,23 +222,33 @@ export function VaultScreen() {
           {/* CTA Button */}
           <Button
             onClick={handleOpenFile}
+            disabled={isOpening}
             className={cn(
               "h-11 px-8 rounded-xl text-sm font-medium",
               "bg-gradient-to-b from-violet-600 to-violet-700",
               "hover:from-violet-500 hover:to-violet-600",
               "shadow-[0_0_20px_rgba(139,92,246,0.2)] hover:shadow-[0_0_30px_rgba(139,92,246,0.35)]",
               "text-white border border-violet-400/20",
-              "transition-all duration-200"
+              "transition-all duration-200",
+              isOpening && "opacity-70 animate-pulse"
             )}
           >
             <Database className="w-4 h-4 mr-2" />
-            Open SQLite Database...
+            {isOpening ? "Opening..." : "Open Database..."}
           </Button>
 
           {/* Drop hint */}
           <p className="text-xs text-zinc-500 mt-3 mb-8">
-            or drag and drop a .db / .sqlite / .sqlite3 file
+            or drag and drop a .db / .sqlite / .yaml file
           </p>
+
+          {/* Error message */}
+          {openError && (
+            <div className="flex items-start gap-2 px-4 py-3 mb-6 rounded-lg bg-red-500/5 border border-red-500/15 max-w-sm">
+              <FileWarning className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+              <p className="text-xs text-red-300/80">{openError}</p>
+            </div>
+          )}
 
           {/* Feature badges */}
           <div className="flex flex-wrap items-center justify-center gap-2.5 mb-12">
@@ -151,10 +291,7 @@ export function VaultScreen() {
                   key={source.path}
                   name={source.fileName}
                   metadata={source.summary}
-                  onClick={() => {
-                    useAppStore.getState().setActiveSource(source);
-                    useAppStore.getState().setActiveView("workspace");
-                  }}
+                  onClick={() => handleRecentClick(source)}
                 />
               ))
             )}
@@ -163,4 +300,10 @@ export function VaultScreen() {
       </div>
     </div>
   );
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }

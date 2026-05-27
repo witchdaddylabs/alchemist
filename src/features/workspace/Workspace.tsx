@@ -1,10 +1,45 @@
+import { useEffect, useState } from "react";
 import { SchemaPanel } from "@/features/workspace/SchemaPanel";
 import { ChatPanel } from "@/features/workspace/ChatPanel";
 import { InspectorPanel } from "@/features/workspace/InspectorPanel";
 import { useAppStore } from "@/state/app-store";
+import { getSchema, listCollections, parseMempalace } from "@/lib/tauri";
+import type { TableSchema, CollectionInfo, MemPalaceStructure } from "@/lib/tauri";
 
 export function Workspace() {
   const activeSource = useAppStore((s) => s.activeSource);
+  const dataSourceType = useAppStore((s) => s.dataSourceType);
+
+  // Schema data state
+  const [tables, setTables] = useState<TableSchema[]>([]);
+  const [collections, setCollections] = useState<CollectionInfo[]>([]);
+  const [palace, setPalace] = useState<MemPalaceStructure | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!activeSource) return;
+
+    const loadSchema = async () => {
+      setError(null);
+
+      try {
+        if (dataSourceType === "sqlite") {
+          const result = await getSchema(activeSource.path);
+          setTables(result);
+        } else if (dataSourceType === "chromadb") {
+          const result = await listCollections(activeSource.path);
+          setCollections(result);
+        } else if (dataSourceType === "mempalace") {
+          const result = await parseMempalace(activeSource.path);
+          setPalace(result);
+        }
+      } catch (err) {
+        setError(String(err));
+      }
+    };
+
+    loadSchema();
+  }, [activeSource?.path, dataSourceType]);
 
   if (!activeSource) {
     return (
@@ -16,10 +51,21 @@ export function Workspace() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-[#0b0b10]">
+        <div className="text-center">
+          <p className="text-red-400 text-sm">Failed to load schema</p>
+          <p className="text-zinc-600 text-xs mt-1">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1 flex h-full overflow-hidden">
       {/* Left: Schema panel */}
-      <SchemaPanel tables={[]} />
+      <SchemaPanel tables={tables} collections={collections} palace={palace ?? undefined} />
 
       {/* Center: Chat */}
       <ChatPanel />

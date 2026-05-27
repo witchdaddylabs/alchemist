@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "usershabibihermesapps-codebasesalchemist",
+  "productName": "Alchemist",
   "version": "0.1.0",
-  "identifier": "com.habibi.usershabibihermesapps-codebasesalchemist",
+  "identifier": "com.witchdaddylabs.alchemist",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -12,9 +12,11 @@
   "app": {
     "windows": [
       {
-        "title": "usershabibihermesapps-codebasesalchemist",
-        "width": 800,
-        "height": 600
+        "title": "Alchemist",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 900,
+        "minHeight": 600
       }
     ],
     "security": {

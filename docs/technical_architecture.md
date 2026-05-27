@@ -1,5 +1,7 @@
 # Technical Architecture
 
+> **⚠️ 2026-05-28 update:** This architecture describes the **target state**. The Rust backend implements everything described here. The frontend UI is built but currently wired to mock data instead of real Tauri commands. See `Sprint 9 — Core Pipeline Wiring` in the Obsidian note for the migration plan.
+
 This document describes the major components and interactions within the Alchemist application. It clarifies the technology stack, how data flows through the system, and key design decisions that ensure the product's goals of privacy, safety and simplicity.
 
 ## Overview

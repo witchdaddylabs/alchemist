@@ -13,6 +13,7 @@ import {
   Lock,
   ChevronRight,
   AlertTriangle,
+  Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,7 +39,6 @@ interface ProviderState {
   status: ProviderStatus;
   model: string;
   url: string;
-  modelOptions: string[];
   hasKey?: boolean;
   lastChecked: string | null;
 }
@@ -52,7 +52,6 @@ const initialProviders: ProviderState[] = [
     status: "connected",
     model: "llama3.2",
     url: "http://localhost:11434",
-    modelOptions: ["llama3.2", "llama3.1", "mistral", "codellama", "mixtral"],
     lastChecked: "Just now",
   },
   {
@@ -61,9 +60,8 @@ const initialProviders: ProviderState[] = [
     type: "cloud",
     icon: <Cloud className="w-5 h-5" />,
     status: "disconnected",
-    model: "gpt-4o-mini",
+    model: "gpt-4.1",
     url: "https://api.openai.com/v1",
-    modelOptions: ["gpt-4o", "gpt-4o-mini", "gpt-4", "gpt-3.5-turbo"],
     hasKey: false,
     lastChecked: null,
   },
@@ -73,9 +71,8 @@ const initialProviders: ProviderState[] = [
     type: "cloud",
     icon: <BrainCircuit className="w-5 h-5" />,
     status: "disconnected",
-    model: "deepseek-chat",
+    model: "deepseek-v4-flash",
     url: "https://api.deepseek.com",
-    modelOptions: ["deepseek-chat", "deepseek-reasoner"],
     hasKey: false,
     lastChecked: null,
   },
@@ -85,14 +82,8 @@ const initialProviders: ProviderState[] = [
     type: "cloud",
     icon: <Globe className="w-5 h-5" />,
     status: "disconnected",
-    model: "gemini-2.0-flash",
+    model: "gemini-2.5-flash",
     url: "https://generativelanguage.googleapis.com/v1beta",
-    modelOptions: [
-      "gemini-2.0-flash",
-      "gemini-2.0-flash-lite",
-      "gemini-1.5-pro",
-      "gemini-1.5-flash",
-    ],
     hasKey: false,
     lastChecked: null,
   },
@@ -137,6 +128,13 @@ export function SettingsScreen() {
   const [apiKeys, setApiKeys] = useState<ApiKeysState>(emptyApiKeys);
   const [testingProvider, setTestingProvider] = useState<string | null>(null);
   const [showCloudModal, setShowCloudModal] = useState(false);
+  const [fetchingModels, setFetchingModels] = useState<string | null>(null);
+
+  // Inline model editing — track which provider's model is being edited
+  const [editingModel, setEditingModel] = useState<string | null>(null);
+  const [editModelValue, setEditModelValue] = useState("");
+
+  // ── Connection test ──
 
   const handleTestConnection = async (id: string) => {
     setTestingProvider(id);
@@ -151,31 +149,24 @@ export function SettingsScreen() {
     setTestingProvider(null);
   };
 
+  // ── API key management ──
+
   const handleSaveApiKey = (id: string) => {
     const key = apiKeys[id]?.key;
     if (!key?.trim()) return;
-    setApiKeys((prev) => ({
-      ...prev,
-      [id]: { ...prev[id], saved: true },
-    }));
+    setApiKeys((prev) => ({ ...prev, [id]: { ...prev[id], saved: true } }));
     setProviders((prev) =>
       prev.map((p) =>
         p.id === id ? { ...p, hasKey: true, status: "connected" } : p
       )
     );
     setTimeout(() => {
-      setApiKeys((prev) => ({
-        ...prev,
-        [id]: { ...prev[id], saved: false },
-      }));
+      setApiKeys((prev) => ({ ...prev, [id]: { ...prev[id], saved: false } }));
     }, 2000);
   };
 
   const handleRemoveKey = (id: string) => {
-    setApiKeys((prev) => ({
-      ...prev,
-      [id]: { key: "", saved: false, show: false },
-    }));
+    setApiKeys((prev) => ({ ...prev, [id]: { key: "", saved: false, show: false } }));
     setProviders((prev) =>
       prev.map((p) =>
         p.id === id ? { ...p, hasKey: false, status: "disconnected" } : p
@@ -184,18 +175,59 @@ export function SettingsScreen() {
   };
 
   const toggleShowKey = (id: string) => {
-    setApiKeys((prev) => ({
-      ...prev,
-      [id]: { ...prev[id], show: !prev[id].show },
-    }));
+    setApiKeys((prev) => ({ ...prev, [id]: { ...prev[id], show: !prev[id].show } }));
   };
 
   const setKeyInput = (id: string, value: string) => {
-    setApiKeys((prev) => ({
-      ...prev,
-      [id]: { ...prev[id], key: value },
-    }));
+    setApiKeys((prev) => ({ ...prev, [id]: { ...prev[id], key: value } }));
   };
+
+  // ── Model editing ──
+
+  const startEditModel = (id: string, currentModel: string) => {
+    setEditingModel(id);
+    setEditModelValue(currentModel);
+  };
+
+  const saveEditModel = (id: string) => {
+    if (editModelValue.trim()) {
+      setProviders((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, model: editModelValue.trim() } : p))
+      );
+    }
+    setEditingModel(null);
+  };
+
+  const cancelEditModel = () => {
+    setEditingModel(null);
+  };
+
+  // ── Fetch available models (stubbed — real impl hits the API) ──
+
+  const handleFetchModels = async (id: string) => {
+    setFetchingModels(id);
+    await new Promise((r) => setTimeout(r, 1000));
+
+    // Simulated model list lookup — in production this queries the provider API
+    const modelMap: Record<string, string[]> = {
+      openai: ["gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano", "gpt-4o", "gpt-4o-mini", "o3", "o4-mini"],
+      deepseek: ["deepseek-v4-flash", "deepseek-v4-pro", "deepseek-chat", "deepseek-reasoner"],
+      "google-ai": ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash", "gemini-2.0-flash-lite"],
+      ollama: ["llama3.2", "llama3.1", "mistral", "codellama", "mixtral", "qwen2.5"],
+    };
+
+    // Auto-select the best model from the list (first in array = recommended)
+    const models = modelMap[id];
+    if (models && models.length > 0) {
+      setProviders((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, model: models[0] } : p))
+      );
+    }
+
+    setFetchingModels(null);
+  };
+
+  // ── Status helpers ──
 
   const statusDot = (status: ProviderStatus) => {
     const colors = {
@@ -254,6 +286,8 @@ export function SettingsScreen() {
             {providers.map((provider) => {
               const colorKey = providerColors[provider.id] || "zinc";
               const apiKey = apiKeys[provider.id];
+              const isEditingModel = editingModel === provider.id;
+              const isFetching = fetchingModels === provider.id;
 
               return (
                 <div
@@ -293,30 +327,67 @@ export function SettingsScreen() {
                       </div>
                     </div>
 
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleTestConnection(provider.id)}
-                      disabled={testingProvider === provider.id}
-                      className="h-8 px-3 rounded-lg text-xs font-medium border-white/[0.1] text-zinc-300 hover:text-zinc-100 hover:bg-white/[0.06]"
-                    >
-                      <RefreshCw
-                        className={cn(
-                          "w-3 h-3 mr-1.5",
-                          testingProvider === provider.id && "animate-spin"
-                        )}
-                      />
-                      Test
-                    </Button>
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleTestConnection(provider.id)}
+                        disabled={testingProvider === provider.id}
+                        className="h-8 px-3 rounded-lg text-xs font-medium border-white/[0.1] text-zinc-300 hover:text-zinc-100 hover:bg-white/[0.06]"
+                      >
+                        <RefreshCw
+                          className={cn(
+                            "w-3 h-3 mr-1.5",
+                            testingProvider === provider.id && "animate-spin"
+                          )}
+                        />
+                        Test
+                      </Button>
+                    </div>
                   </div>
 
                   {/* Model + URL info */}
                   <div className="px-4 pb-3 flex items-center gap-4 text-[11px] text-zinc-600 flex-wrap">
-                    <span>
+                    <span className="flex items-center gap-1.5">
                       Model:{" "}
-                      <span className="font-mono text-zinc-400">
-                        {provider.model}
-                      </span>
+                      {isEditingModel ? (
+                        <span className="inline-flex items-center gap-1">
+                          <Input
+                            value={editModelValue}
+                            onChange={(e) => setEditModelValue(e.target.value)}
+                            className="h-7 w-40 text-xs font-mono bg-black/40 border-white/[0.08] text-zinc-200 rounded-md px-2"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") saveEditModel(provider.id);
+                              if (e.key === "Escape") cancelEditModel();
+                            }}
+                            onBlur={() => saveEditModel(provider.id)}
+                          />
+                        </span>
+                      ) : (
+                        <>
+                          <span className="font-mono text-zinc-400">
+                            {provider.model}
+                          </span>
+                          <button
+                            onClick={() => startEditModel(provider.id, provider.model)}
+                            className="text-zinc-700 hover:text-zinc-400 transition-colors"
+                            title="Edit model"
+                          >
+                            <Pencil className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={() => handleFetchModels(provider.id)}
+                            disabled={isFetching}
+                            className="text-zinc-700 hover:text-zinc-400 transition-colors disabled:opacity-50"
+                            title="Auto-detect best model"
+                          >
+                            <RefreshCw
+                              className={cn("w-3 h-3", isFetching && "animate-spin")}
+                            />
+                          </button>
+                        </>
+                      )}
                     </span>
                     <span>
                       URL:{" "}

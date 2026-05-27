@@ -29,6 +29,27 @@ export interface QueryResultData {
 
 export type ResultTab = "table" | "chart" | "relevance";
 
+export interface Spell {
+  id: string;
+  name: string;
+  description: string;
+  sql: string;
+  mode: "sql" | "vector";
+  createdAt: string;
+  updatedAt: string;
+  tags: string[];
+}
+
+export type PrivacyMode = "minimal" | "standard" | "full";
+
+export interface SettingsState {
+  cloudConsent: boolean;
+  cloudConsentAcknowledged: boolean;
+  privacyMode: PrivacyMode;
+  setCloudConsent: (v: boolean) => void;
+  setPrivacyMode: (v: PrivacyMode) => void;
+}
+
 export interface AppState {
   // Navigation
   activeView: "vault" | "workspace" | "spells" | "settings";
@@ -52,6 +73,8 @@ export interface AppState {
   // Current query
   currentQuery: string;
   setCurrentQuery: (query: string) => void;
+  generatedSql: string | null;
+  setGeneratedSql: (sql: string | null) => void;
   currentQueryPreview: string | null;
   setCurrentQueryPreview: (sql: string | null) => void;
 
@@ -60,7 +83,24 @@ export interface AppState {
   setCurrentResults: (results: QueryResultData | null) => void;
   activeResultTab: ResultTab;
   setActiveResultTab: (tab: ResultTab) => void;
+
+  // Spells
+  spells: Spell[];
+  addSpell: (spell: Spell) => void;
+  updateSpell: (id: string, updates: Partial<Spell>) => void;
+  deleteSpell: (id: string) => void;
+
+  // Settings
+  settings: SettingsState;
 }
+
+const defaultSettings: SettingsState = {
+  cloudConsent: false,
+  cloudConsentAcknowledged: false,
+  privacyMode: "standard",
+  setCloudConsent: () => {},
+  setPrivacyMode: () => {},
+};
 
 export const useAppStore = create<AppState>((set) => ({
   // Navigation
@@ -101,6 +141,8 @@ export const useAppStore = create<AppState>((set) => ({
   // Current query
   currentQuery: "",
   setCurrentQuery: (query) => set({ currentQuery: query }),
+  generatedSql: null,
+  setGeneratedSql: (sql) => set({ generatedSql: sql }),
   currentQueryPreview: null,
   setCurrentQueryPreview: (sql) => set({ currentQueryPreview: sql }),
 
@@ -109,4 +151,38 @@ export const useAppStore = create<AppState>((set) => ({
   setCurrentResults: (results) => set({ currentResults: results }),
   activeResultTab: "table",
   setActiveResultTab: (tab) => set({ activeResultTab: tab }),
+
+  // Spells
+  spells: [],
+  addSpell: (spell) =>
+    set((state) => ({
+      spells: [spell, ...state.spells],
+    })),
+  updateSpell: (id, updates) =>
+    set((state) => ({
+      spells: state.spells.map((s) =>
+        s.id === id ? { ...s, ...updates, updatedAt: new Date().toISOString() } : s
+      ),
+    })),
+  deleteSpell: (id) =>
+    set((state) => ({
+      spells: state.spells.filter((s) => s.id !== id),
+    })),
+
+  // Settings
+  settings: {
+    ...defaultSettings,
+    setCloudConsent: (v) =>
+      set((state) => ({
+        settings: {
+          ...state.settings,
+          cloudConsent: v,
+          cloudConsentAcknowledged: true,
+        },
+      })),
+    setPrivacyMode: (v) =>
+      set((state) => ({
+        settings: { ...state.settings, privacyMode: v },
+      })),
+  },
 }));

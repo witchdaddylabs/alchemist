@@ -311,3 +311,48 @@ pub fn check_api_key(account: String) -> Result<bool, String> {
 pub fn delete_api_key(account: String) -> Result<(), String> {
     crate::secret_store::delete_key(&account)
 }
+
+// ── Persistence commands ──
+
+use std::path::PathBuf;
+
+fn data_dir() -> PathBuf {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+    PathBuf::from(home).join(".alchemist")
+}
+
+#[tauri::command]
+pub fn save_spells(spells_json: String) -> Result<(), String> {
+    let dir = data_dir();
+    std::fs::create_dir_all(&dir).map_err(|e| format!("Failed to create data dir: {}", e))?;
+    let path = dir.join("spells.json");
+    std::fs::write(&path, &spells_json).map_err(|e| format!("Failed to save spells: {}", e))?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn load_spells() -> Result<String, String> {
+    let path = data_dir().join("spells.json");
+    if !path.exists() {
+        return Ok("[]".to_string());
+    }
+    std::fs::read_to_string(&path).map_err(|e| format!("Failed to load spells: {}", e))
+}
+
+#[tauri::command]
+pub fn save_config(config_json: String) -> Result<(), String> {
+    let dir = data_dir();
+    std::fs::create_dir_all(&dir).map_err(|e| format!("Failed to create data dir: {}", e))?;
+    let path = dir.join("config.json");
+    std::fs::write(&path, &config_json).map_err(|e| format!("Failed to save config: {}", e))?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn load_config() -> Result<String, String> {
+    let path = data_dir().join("config.json");
+    if !path.exists() {
+        return Ok("{}".to_string());
+    }
+    std::fs::read_to_string(&path).map_err(|e| format!("Failed to load config: {}", e))
+}

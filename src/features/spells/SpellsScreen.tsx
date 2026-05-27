@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Search,
   Plus,
@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useAppStore, type Spell } from "@/state/app-store";
+import { loadSpells, saveSpells } from "@/lib/tauri";
 
 export function SpellsScreen() {
   const spells = useAppStore((s) => s.spells);
@@ -24,6 +25,30 @@ export function SpellsScreen() {
   const setActiveView = useAppStore((s) => s.setActiveView);
   const setGeneratedSql = useAppStore((s) => s.setGeneratedSql);
   const setCurrentQuery = useAppStore((s) => s.setCurrentQuery);
+
+  // Load spells from disk on mount
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const json = await loadSpells();
+        const loaded: Spell[] = JSON.parse(json);
+        const addSpell = useAppStore.getState().addSpell;
+        for (const spell of loaded) {
+          addSpell(spell);
+        }
+      } catch {
+        // No saved spells — that's fine
+      }
+    };
+    init();
+  }, []);
+
+  // Save spells to disk whenever they change
+  useEffect(() => {
+    if (spells.length === 0) return; // Don't save empty on initial load
+    const json = JSON.stringify(spells);
+    saveSpells(json).catch(() => {});
+  }, [spells]);
 
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);

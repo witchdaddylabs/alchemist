@@ -13,14 +13,28 @@ export function ResultsPanel({ onExport }: ResultsPanelProps) {
   const results = useAppStore((s) => s.currentResults);
   const activeTab = useAppStore((s) => s.activeResultTab);
   const setActiveTab = useAppStore((s) => s.setActiveResultTab);
+  const generatedSql = useAppStore((s) => s.generatedSql);
 
-  if (!results || results.rows.length === 0) {
+  if (!results) {
     return (
       <div className="flex flex-col items-center justify-center py-10 text-zinc-600">
         <Table2 className="w-8 h-8 mb-2 opacity-50" />
         <p className="text-sm">No results yet.</p>
         <p className="text-xs text-zinc-700 mt-1">
           Run a query to see results here.
+        </p>
+      </div>
+    );
+  }
+
+  // Query ran but returned 0 rows
+  if (results.rows.length === 0 && generatedSql) {
+    return (
+      <div className="flex flex-col items-center justify-center py-10 text-zinc-600">
+        <Table2 className="w-8 h-8 mb-2 opacity-50" />
+        <p className="text-sm">Query returned no results.</p>
+        <p className="text-xs text-zinc-700 mt-1 max-w-md text-center">
+          Try a different question or check that your data source contains matching data.
         </p>
       </div>
     );

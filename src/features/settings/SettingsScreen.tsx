@@ -28,7 +28,7 @@ import {
 import { useAppStore, type PrivacyMode } from "@/state/app-store";
 import { cn } from "@/lib/utils";
 import { CloudConsentModal } from "@/features/settings/CloudConsentModal";
-import { checkProvider, listModels, storeApiKey, deleteApiKey, checkApiKey } from "@/lib/tauri";
+import { checkProvider, listModels, storeApiKey, deleteApiKey, checkApiKey, saveConfig, loadConfig } from "@/lib/tauri";
 
 type ProviderStatus = "unknown" | "connected" | "disconnected" | "error";
 
@@ -177,6 +177,45 @@ export function SettingsScreen() {
     };
     init();
   }, []);
+
+  // Load saved provider config on mount
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const json = await loadConfig();
+        const saved = JSON.parse(json);
+        if (saved.providers) {
+          setProviders((prev) =>
+            prev.map((p) => {
+              const savedP = saved.providers.find((sp: any) => sp.id === p.id);
+              return savedP ? { ...p, model: savedP.model, url: savedP.url } : p;
+            })
+          );
+        }
+      } catch {
+        // No saved config
+      }
+    };
+    load();
+  }, []);
+
+  // Save provider config on changes
+  useEffect(() => {
+    if (providers === initialProviders) return; // Skip initial render
+    const config = { providers: providers.map((p) => ({ id: p.id, model: p.model, url: p.url })) };
+    saveConfig(JSON.stringify(config)).catch(() => {});
+  }, [providers]);
+
+  // Sync first provider to activeProvider in store for ChatPanel use
+  const setActiveProvider = useAppStore((s) => s.setActiveProvider);
+  useEffect(() => {
+    const first = providers[0];
+    if (first) {
+      // Find which provider has hasKey=true for cloud, or default to first
+      const active = providers.find((p) => p.type === "cloud" && p.hasKey) || first;
+      setActiveProvider({ type: active.id, url: active.url, model: active.model });
+    }
+  }, [providers, apiKeys]);
 
   // ── Connection test ──
 

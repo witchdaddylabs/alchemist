@@ -18,6 +18,17 @@ export interface ChatMessage {
   timestamp: string;
 }
 
+export interface QueryResultData {
+  columns: string[];
+  rows: unknown[][];
+  rowCount: number;
+  truncated: boolean;
+  elapsedMs: number;
+  mode: "sql" | "vector";
+}
+
+export type ResultTab = "table" | "chart" | "relevance";
+
 export interface AppState {
   // Navigation
   activeView: "vault" | "workspace" | "spells" | "settings";
@@ -43,6 +54,12 @@ export interface AppState {
   setCurrentQuery: (query: string) => void;
   currentQueryPreview: string | null;
   setCurrentQueryPreview: (sql: string | null) => void;
+
+  // Results
+  currentResults: QueryResultData | null;
+  setCurrentResults: (results: QueryResultData | null) => void;
+  activeResultTab: ResultTab;
+  setActiveResultTab: (tab: ResultTab) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -86,4 +103,10 @@ export const useAppStore = create<AppState>((set) => ({
   setCurrentQuery: (query) => set({ currentQuery: query }),
   currentQueryPreview: null,
   setCurrentQueryPreview: (sql) => set({ currentQueryPreview: sql }),
+
+  // Results
+  currentResults: null,
+  setCurrentResults: (results) => set({ currentResults: results }),
+  activeResultTab: "table",
+  setActiveResultTab: (tab) => set({ activeResultTab: tab }),
 }));

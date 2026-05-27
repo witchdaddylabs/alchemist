@@ -139,6 +139,11 @@ pub async fn list_models(
     api_key: Option<String>,
 ) -> Result<Vec<String>, String> {
     match provider_type.as_str() {
+        "ollama" => {
+            let client = OllamaClient::new(&url, "");
+            let health = client.check_health().await?;
+            Ok(health.models)
+        }
         "google-ai" => {
             let key = api_key.unwrap_or_default();
             let client = GeminiClient::new(&url, "gemini-2.5-flash", &key);

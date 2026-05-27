@@ -83,6 +83,18 @@ struct ChatResponse {
     choices: Vec<ChatChoice>,
 }
 
+// ── OpenAI /v1/models response types ──
+
+#[derive(Debug, serde::Deserialize)]
+struct OpenAIModelsResponse {
+    data: Vec<OpenAIModelEntry>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct OpenAIModelEntry {
+    id: String,
+}
+
 /// Client for Ollama API.
 pub struct OllamaClient {
     base_url: String,
@@ -205,13 +217,18 @@ impl OpenAIClient {
             .await;
 
         match resp {
-            Ok(r) if r.status().is_success() => Ok(models::ProviderHealth {
-                provider_type: "openai".to_string(),
-                reachable: true,
-                model_count: 0,
-                models: vec![],
-                error: None,
-            }),
+            Ok(r) if r.status().is_success() => {
+                let models = r.json::<OpenAIModelsResponse>().await.map(|m| {
+                    m.data.into_iter().map(|e| e.id).collect::<Vec<_>>()
+                }).unwrap_or_default();
+                Ok(models::ProviderHealth {
+                    provider_type: "openai".to_string(),
+                    reachable: true,
+                    model_count: models.len(),
+                    models,
+                    error: None,
+                })
+            }
             Ok(r) => Ok(models::ProviderHealth {
                 provider_type: "openai".to_string(),
                 reachable: false,

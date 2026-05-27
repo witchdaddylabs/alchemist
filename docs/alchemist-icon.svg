@@ -1,0 +1,18 @@
+<svg viewBox="0 0 1024 1024" width="1024" height="1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="1024" height="1024" rx="228" fill="#1A1725"/>
+  <!-- Flask body -->
+  <path d="M320 832 L704 832 L832 320 L192 320 Z" stroke="#8A4AFB" stroke-width="24" stroke-linejoin="round" fill="rgba(138,74,251,0.08)"/>
+  <!-- Flask neck -->
+  <path d="M416 320 L416 160 L608 160 L608 320" stroke="#8A4AFB" stroke-width="24" stroke-linejoin="round" fill="none"/>
+  <!-- Liquid -->
+  <rect x="384" y="512" width="256" height="256" rx="16" fill="#8A4AFB" opacity="0.35"/>
+  <!-- Bubbles -->
+  <circle cx="448" cy="640" r="24" fill="#A78BFA" opacity="0.6"/>
+  <circle cx="576" cy="576" r="18" fill="#A78BFA" opacity="0.5"/>
+  <circle cx="512" cy="704" r="14" fill="#A78BFA" opacity="0.4"/>
+  <circle cx="544" cy="656" r="10" fill="#A78BFA" opacity="0.3"/>
+  <!-- Glow dot -->
+  <circle cx="512" cy="832" r="64" fill="#8A4AFB" opacity="0.1"/>
+  <circle cx="512" cy="832" r="32" fill="#8A4AFB" opacity="0.3"/>
+</svg>

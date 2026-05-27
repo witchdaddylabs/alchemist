@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { useAppStore, type RecentSource } from "@/state/app-store";
 import { parseMempalace } from "@/lib/tauri";
+import { check } from "@tauri-apps/plugin-updater";
+import { ask } from "@tauri-apps/plugin-dialog";
 
 function App() {
   const setActiveSource = useAppStore((s) => s.setActiveSource);
@@ -49,6 +51,27 @@ function App() {
     };
 
     init();
+  }, []);
+
+  // Check for app updates on launch
+  useEffect(() => {
+    const checkUpdate = async () => {
+      try {
+        const update = await check();
+        if (update?.available) {
+          const install = await ask(
+            `Version ${update.version} is available. Download and install now?`,
+            { title: "Update Available", kind: "info" }
+          );
+          if (install) {
+            await update.downloadAndInstall();
+          }
+        }
+      } catch {
+        // Not running in Tauri (dev mode) — silently skip
+      }
+    };
+    checkUpdate();
   }, []);
 
   if (!ready) {

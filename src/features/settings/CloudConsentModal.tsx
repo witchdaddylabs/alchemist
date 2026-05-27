@@ -70,7 +70,7 @@ export function CloudConsentModal({
           <div className="flex items-start gap-3 px-3 py-3 rounded-lg bg-amber-500/5 border border-amber-500/15">
             <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
             <p className="text-xs text-amber-300/80 leading-relaxed">
-              When using cloud AI providers (OpenAI), some metadata about your
+              When using cloud AI providers (OpenAI, DeepSeek, Google AI Studio), some metadata about your
               database schema is sent to their servers to generate accurate
               queries. Your actual data never leaves your machine.
             </p>

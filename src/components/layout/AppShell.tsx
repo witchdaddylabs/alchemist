@@ -4,9 +4,23 @@ import { Workspace } from "@/features/workspace/Workspace";
 import { SpellsScreen } from "@/features/spells/SpellsScreen";
 import { SettingsScreen } from "@/features/settings/SettingsScreen";
 import { useAppStore } from "@/state/app-store";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { AlchemistIcon } from "@/components/icons/AlchemistIcon";
 
 export function AppShell() {
   const activeView = useAppStore((s) => s.activeView);
+
+  useKeyboardShortcuts();
+
+  const shortcutHint = () => {
+    const hints: string[] = [];
+    if (activeView !== "vault") hints.push("⌘O Open Vault");
+    if (activeView === "workspace") {
+      hints.push("⌘↵ Run Query");
+      hints.push("⌘S Save Spell");
+    }
+    return hints;
+  };
 
   const renderView = () => {
     switch (activeView) {
@@ -34,9 +48,21 @@ export function AppShell() {
             <div className="w-3 h-3 rounded-full bg-[#FEBC2E]" />
             <div className="w-3 h-3 rounded-full bg-[#28C840]" />
           </div>
-          <span className="text-xs text-zinc-600 ml-3 font-medium">
+          <AlchemistIcon size={16} className="text-violet-500 ml-3" />
+          <span className="text-xs text-zinc-600 ml-1.5 font-medium">
             Alchemist
           </span>
+          <div className="flex-1" />
+          <div className="flex items-center gap-2">
+            {shortcutHint().map((hint) => (
+              <kbd
+                key={hint}
+                className="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-medium text-zinc-600 bg-white/[0.04] rounded border border-white/[0.06]"
+              >
+                {hint}
+              </kbd>
+            ))}
+          </div>
         </div>
 
         {/* Body */}

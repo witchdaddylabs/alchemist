@@ -8,6 +8,8 @@ import {
   RefreshCw,
   Brain,
   Cloud,
+  Globe,
+  BrainCircuit,
   Lock,
   ChevronRight,
   AlertTriangle,
@@ -29,82 +31,170 @@ import { CloudConsentModal } from "@/features/settings/CloudConsentModal";
 type ProviderStatus = "unknown" | "connected" | "disconnected" | "error";
 
 interface ProviderState {
+  id: string;
   name: string;
   type: "local" | "cloud";
   icon: React.ReactNode;
   status: ProviderStatus;
   model: string;
-  url?: string;
+  url: string;
+  modelOptions: string[];
   hasKey?: boolean;
   lastChecked: string | null;
 }
 
 const initialProviders: ProviderState[] = [
   {
+    id: "ollama",
     name: "Ollama",
     type: "local",
     icon: <Brain className="w-5 h-5" />,
     status: "connected",
     model: "llama3.2",
     url: "http://localhost:11434",
+    modelOptions: ["llama3.2", "llama3.1", "mistral", "codellama", "mixtral"],
     lastChecked: "Just now",
   },
   {
+    id: "openai",
     name: "OpenAI",
     type: "cloud",
     icon: <Cloud className="w-5 h-5" />,
     status: "disconnected",
     model: "gpt-4o-mini",
+    url: "https://api.openai.com/v1",
+    modelOptions: ["gpt-4o", "gpt-4o-mini", "gpt-4", "gpt-3.5-turbo"],
+    hasKey: false,
+    lastChecked: null,
+  },
+  {
+    id: "deepseek",
+    name: "DeepSeek",
+    type: "cloud",
+    icon: <BrainCircuit className="w-5 h-5" />,
+    status: "disconnected",
+    model: "deepseek-chat",
+    url: "https://api.deepseek.com",
+    modelOptions: ["deepseek-chat", "deepseek-reasoner"],
+    hasKey: false,
+    lastChecked: null,
+  },
+  {
+    id: "google-ai",
+    name: "Google AI Studio",
+    type: "cloud",
+    icon: <Globe className="w-5 h-5" />,
+    status: "disconnected",
+    model: "gemini-2.0-flash",
+    url: "https://generativelanguage.googleapis.com/v1beta",
+    modelOptions: [
+      "gemini-2.0-flash",
+      "gemini-2.0-flash-lite",
+      "gemini-1.5-pro",
+      "gemini-1.5-flash",
+    ],
     hasKey: false,
     lastChecked: null,
   },
 ];
 
+type ApiKeysState = Record<string, { key: string; saved: boolean; show: boolean }>;
+
+function emptyApiKeys(): ApiKeysState {
+  const keys: ApiKeysState = {};
+  for (const p of initialProviders) {
+    if (p.type === "cloud") {
+      keys[p.id] = { key: "", saved: false, show: false };
+    }
+  }
+  return keys;
+}
+
+const providerColors: Record<string, string> = {
+  ollama: "violet",
+  openai: "cyan",
+  deepseek: "blue",
+  "google-ai": "emerald",
+};
+
+const badgeColors: Record<string, string> = {
+  violet: "text-violet-400 border-violet-500/20",
+  cyan: "text-cyan-400 border-cyan-500/20",
+  blue: "text-blue-400 border-blue-500/20",
+  emerald: "text-emerald-400 border-emerald-500/20",
+};
+
+const iconBgColors: Record<string, string> = {
+  violet: "bg-violet-600/15 text-violet-400",
+  cyan: "bg-cyan-600/15 text-cyan-400",
+  blue: "bg-blue-600/15 text-blue-400",
+  emerald: "bg-emerald-600/15 text-emerald-400",
+};
+
 export function SettingsScreen() {
   const settings = useAppStore((s) => s.settings);
   const [providers, setProviders] = useState<ProviderState[]>(initialProviders);
-  const [apiKeyInput, setApiKeyInput] = useState("");
-  const [showApiKey, setShowApiKey] = useState(false);
-  const [savedKey, setSavedKey] = useState(false);
+  const [apiKeys, setApiKeys] = useState<ApiKeysState>(emptyApiKeys);
   const [testingProvider, setTestingProvider] = useState<string | null>(null);
   const [showCloudModal, setShowCloudModal] = useState(false);
 
-  const handleTestConnection = async (name: string) => {
-    setTestingProvider(name);
-    // Simulate connection test
+  const handleTestConnection = async (id: string) => {
+    setTestingProvider(id);
     await new Promise((r) => setTimeout(r, 1200));
     setProviders((prev) =>
       prev.map((p) =>
-        p.name === name
-          ? {
-              ...p,
-              status: "connected" as ProviderStatus,
-              lastChecked: "Just now",
-            }
+        p.id === id
+          ? { ...p, status: "connected" as ProviderStatus, lastChecked: "Just now" }
           : p
       )
     );
     setTestingProvider(null);
   };
 
-  const handleSaveApiKey = () => {
-    if (!apiKeyInput.trim()) return;
-    setSavedKey(true);
+  const handleSaveApiKey = (id: string) => {
+    const key = apiKeys[id]?.key;
+    if (!key?.trim()) return;
+    setApiKeys((prev) => ({
+      ...prev,
+      [id]: { ...prev[id], saved: true },
+    }));
     setProviders((prev) =>
       prev.map((p) =>
-        p.name === "OpenAI" ? { ...p, hasKey: true, status: "connected" } : p
+        p.id === id ? { ...p, hasKey: true, status: "connected" } : p
       )
     );
-    setTimeout(() => setSavedKey(false), 2000);
+    setTimeout(() => {
+      setApiKeys((prev) => ({
+        ...prev,
+        [id]: { ...prev[id], saved: false },
+      }));
+    }, 2000);
   };
 
-  const handleRemoveKey = () => {
-    setApiKeyInput("");
+  const handleRemoveKey = (id: string) => {
+    setApiKeys((prev) => ({
+      ...prev,
+      [id]: { key: "", saved: false, show: false },
+    }));
     setProviders((prev) =>
       prev.map((p) =>
-        p.name === "OpenAI" ? { ...p, hasKey: false, status: "disconnected" } : p
+        p.id === id ? { ...p, hasKey: false, status: "disconnected" } : p
       )
     );
+  };
+
+  const toggleShowKey = (id: string) => {
+    setApiKeys((prev) => ({
+      ...prev,
+      [id]: { ...prev[id], show: !prev[id].show },
+    }));
+  };
+
+  const setKeyInput = (id: string, value: string) => {
+    setApiKeys((prev) => ({
+      ...prev,
+      [id]: { ...prev[id], key: value },
+    }));
   };
 
   const statusDot = (status: ProviderStatus) => {
@@ -137,6 +227,8 @@ export function SettingsScreen() {
     );
   };
 
+  const hasCloudKey = providers.some((p) => p.type === "cloud" && p.hasKey);
+
   return (
     <div className="flex-1 flex flex-col h-full bg-[#0b0b10] min-w-0">
       {/* Header */}
@@ -159,160 +251,171 @@ export function SettingsScreen() {
           </h2>
 
           <div className="space-y-3">
-            {providers.map((provider) => (
-              <div
-                key={provider.name}
-                className="rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden"
-              >
-                {/* Header */}
-                <div className="flex items-center justify-between px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={cn(
-                        "w-10 h-10 rounded-xl flex items-center justify-center",
-                        provider.type === "local"
-                          ? "bg-violet-600/15 text-violet-400"
-                          : "bg-cyan-600/15 text-cyan-400"
-                      )}
-                    >
-                      {provider.icon}
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-medium text-zinc-200">
-                        {provider.name}
-                      </h3>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "h-5 px-1.5 text-[10px] font-normal",
-                            provider.type === "local"
-                              ? "text-violet-400 border-violet-500/20"
-                              : "text-cyan-400 border-cyan-500/20"
-                          )}
-                        >
-                          {provider.type === "local" ? "Local" : "Cloud"}
-                        </Badge>
-                        <div className="flex items-center gap-1.5">
-                          {statusDot(provider.status)}
-                          {statusLabel(provider.status)}
+            {providers.map((provider) => {
+              const colorKey = providerColors[provider.id] || "zinc";
+              const apiKey = apiKeys[provider.id];
+
+              return (
+                <div
+                  key={provider.id}
+                  className="rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden"
+                >
+                  {/* Header */}
+                  <div className="flex items-center justify-between px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={cn(
+                          "w-10 h-10 rounded-xl flex items-center justify-center",
+                          iconBgColors[colorKey]
+                        )}
+                      >
+                        {provider.icon}
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-medium text-zinc-200">
+                          {provider.name}
+                        </h3>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "h-5 px-1.5 text-[10px] font-normal",
+                              badgeColors[colorKey]
+                            )}
+                          >
+                            {provider.type === "local" ? "Local" : "Cloud"}
+                          </Badge>
+                          <div className="flex items-center gap-1.5">
+                            {statusDot(provider.status)}
+                            {statusLabel(provider.status)}
+                          </div>
                         </div>
                       </div>
                     </div>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleTestConnection(provider.id)}
+                      disabled={testingProvider === provider.id}
+                      className="h-8 px-3 rounded-lg text-xs font-medium border-white/[0.1] text-zinc-300 hover:text-zinc-100 hover:bg-white/[0.06]"
+                    >
+                      <RefreshCw
+                        className={cn(
+                          "w-3 h-3 mr-1.5",
+                          testingProvider === provider.id && "animate-spin"
+                        )}
+                      />
+                      Test
+                    </Button>
                   </div>
 
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleTestConnection(provider.name)}
-                    disabled={testingProvider === provider.name}
-                    className="h-8 px-3 rounded-lg text-xs font-medium border-white/[0.1] text-zinc-300 hover:text-zinc-100 hover:bg-white/[0.06]"
-                  >
-                    <RefreshCw
-                      className={cn(
-                        "w-3 h-3 mr-1.5",
-                        testingProvider === provider.name && "animate-spin"
-                      )}
-                    />
-                    Test
-                  </Button>
-                </div>
-
-                {/* Model info */}
-                <div className="px-4 pb-3 flex items-center gap-4 text-[11px] text-zinc-600">
-                  <span>
-                    Model:{" "}
-                    <span className="font-mono text-zinc-400">
-                      {provider.model}
+                  {/* Model + URL info */}
+                  <div className="px-4 pb-3 flex items-center gap-4 text-[11px] text-zinc-600 flex-wrap">
+                    <span>
+                      Model:{" "}
+                      <span className="font-mono text-zinc-400">
+                        {provider.model}
+                      </span>
                     </span>
-                  </span>
-                  {provider.url && (
                     <span>
                       URL:{" "}
                       <span className="font-mono text-zinc-400">
                         {provider.url}
                       </span>
                     </span>
-                  )}
-                  {provider.lastChecked && (
-                    <span>
-                      Last checked:{" "}
-                      <span className="text-zinc-500">
-                        {provider.lastChecked}
+                    {provider.lastChecked && (
+                      <span>
+                        Last checked:{" "}
+                        <span className="text-zinc-500">
+                          {provider.lastChecked}
+                        </span>
                       </span>
-                    </span>
-                  )}
-                </div>
-
-                {/* Open AI API Key */}
-                {provider.name === "OpenAI" && (
-                  <div className="border-t border-white/[0.04] px-4 py-3 bg-white/[0.01]">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Lock className="w-3 h-3 text-zinc-600" />
-                      <span className="text-xs text-zinc-500 font-medium">
-                        API Key
-                      </span>
-                      {provider.hasKey && (
-                        <Badge className="h-5 px-1.5 text-[10px] font-normal text-emerald-400 border-emerald-500/20 bg-emerald-500/5">
-                          <Check className="w-2.5 h-2.5 mr-1" />
-                          Saved
-                        </Badge>
-                      )}
-                    </div>
-                    {provider.hasKey ? (
-                      <div className="flex items-center gap-2">
-                        <code className="flex-1 text-xs text-zinc-500 bg-black/30 rounded-lg px-3 py-1.5 border border-white/[0.04]">
-                          sk-••••••••••••••••{apiKeyInput.slice(-4) || "xxxx"}
-                        </code>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={handleRemoveKey}
-                          className="h-7 px-2 text-xs text-zinc-400 hover:text-red-400"
-                        >
-                          Remove
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 relative">
-                          <Input
-                            type={showApiKey ? "text" : "password"}
-                            value={apiKeyInput}
-                            onChange={(e) => setApiKeyInput(e.target.value)}
-                            placeholder="sk-..."
-                            className="h-8 pr-8 text-xs font-mono bg-black/30 border-white/[0.08] text-zinc-200 placeholder:text-zinc-700 rounded-lg"
-                          />
-                          <button
-                            onClick={() => setShowApiKey(!showApiKey)}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-zinc-400"
-                          >
-                            {showApiKey ? (
-                              <EyeOff className="w-3.5 h-3.5" />
-                            ) : (
-                              <Eye className="w-3.5 h-3.5" />
-                            )}
-                          </button>
-                        </div>
-                        <Button
-                          onClick={handleSaveApiKey}
-                          disabled={!apiKeyInput.trim()}
-                          className="h-8 px-3 rounded-lg text-xs font-medium bg-violet-600 hover:bg-violet-500 text-white disabled:opacity-50"
-                        >
-                          Save
-                        </Button>
-                      </div>
-                    )}
-                    {savedKey && (
-                      <p className="text-xs text-emerald-500 mt-1.5 flex items-center gap-1">
-                        <Check className="w-3 h-3" />
-                        API key saved securely
-                      </p>
                     )}
                   </div>
-                )}
-              </div>
-            ))}
+
+                  {/* API Key section for cloud providers */}
+                  {provider.type === "cloud" && apiKey && (
+                    <div className="border-t border-white/[0.04] px-4 py-3 bg-white/[0.01]">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Lock className="w-3 h-3 text-zinc-600" />
+                        <span className="text-xs text-zinc-500 font-medium">
+                          API Key
+                        </span>
+                        {provider.hasKey && (
+                          <Badge className="h-5 px-1.5 text-[10px] font-normal text-emerald-400 border-emerald-500/20 bg-emerald-500/5">
+                            <Check className="w-2.5 h-2.5 mr-1" />
+                            Saved
+                          </Badge>
+                        )}
+                        <span className="text-[10px] text-zinc-700 ml-1">
+                          {provider.id === "deepseek" && "(OpenAI-compatible)"}
+                          {provider.id === "google-ai" && "(Gemini API)"}
+                        </span>
+                      </div>
+                      {provider.hasKey ? (
+                        <div className="flex items-center gap-2">
+                          <code className="flex-1 text-xs text-zinc-500 bg-black/30 rounded-lg px-3 py-1.5 border border-white/[0.04]">
+                            {apiKey.key.slice(-4)
+                              ? "••••••••••••••••" + apiKey.key.slice(-4)
+                              : "••••••••••••••••"}
+                          </code>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRemoveKey(provider.id)}
+                            className="h-7 px-2 text-xs text-zinc-400 hover:text-red-400"
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 relative">
+                            <Input
+                              type={apiKey.show ? "text" : "password"}
+                              value={apiKey.key}
+                              onChange={(e) => setKeyInput(provider.id, e.target.value)}
+                              placeholder={
+                                provider.id === "openai"
+                                  ? "sk-..."
+                                  : provider.id === "deepseek"
+                                  ? "sk-..."
+                                  : "Enter your API key"
+                              }
+                              className="h-8 pr-8 text-xs font-mono bg-black/30 border-white/[0.08] text-zinc-200 placeholder:text-zinc-700 rounded-lg"
+                            />
+                            <button
+                              onClick={() => toggleShowKey(provider.id)}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-zinc-400"
+                            >
+                              {apiKey.show ? (
+                                <EyeOff className="w-3.5 h-3.5" />
+                              ) : (
+                                <Eye className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          </div>
+                          <Button
+                            onClick={() => handleSaveApiKey(provider.id)}
+                            disabled={!apiKey.key.trim()}
+                            className="h-8 px-3 rounded-lg text-xs font-medium bg-violet-600 hover:bg-violet-500 text-white disabled:opacity-50"
+                          >
+                            Save
+                          </Button>
+                        </div>
+                      )}
+                      {apiKey.saved && (
+                        <p className="text-xs text-emerald-500 mt-1.5 flex items-center gap-1">
+                          <Check className="w-3 h-3" />
+                          API key saved securely
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </section>
 
@@ -335,8 +438,8 @@ export function SettingsScreen() {
                     Cloud Provider Consent
                   </h3>
                   <p className="text-xs text-zinc-500 mt-0.5">
-                    When using cloud providers (OpenAI), schema and query
-                    context may be sent to their servers.
+                    When using cloud providers, schema and query context may be
+                    sent to their servers.
                   </p>
                 </div>
               </div>
@@ -411,15 +514,36 @@ export function SettingsScreen() {
         </section>
 
         {/* ── Cloud warning banner ── */}
-        {settings.cloudConsentAcknowledged && settings.cloudConsent && (
+        {hasCloudKey && settings.cloudConsentAcknowledged && settings.cloudConsent && (
           <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-amber-500/5 border border-amber-500/15">
             <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
             <p className="text-xs text-amber-300/80 leading-relaxed">
-              Cloud provider enabled. Schema context may be sent to OpenAI
+              Cloud providers enabled. Schema context may be sent to external
               servers. Review your privacy settings above.
             </p>
           </div>
         )}
+
+        {/* ── Keyboard shortcuts section ── */}
+        <section>
+          <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+            Keyboard Shortcuts
+          </h2>
+          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] divide-y divide-white/[0.04]">
+            <div className="flex items-center justify-between px-4 py-2.5">
+              <span className="text-xs text-zinc-400">⌘O</span>
+              <span className="text-xs text-zinc-600">Open vaults screen</span>
+            </div>
+            <div className="flex items-center justify-between px-4 py-2.5">
+              <span className="text-xs text-zinc-400">⌘↵</span>
+              <span className="text-xs text-zinc-600">Run current query</span>
+            </div>
+            <div className="flex items-center justify-between px-4 py-2.5">
+              <span className="text-xs text-zinc-400">⌘S</span>
+              <span className="text-xs text-zinc-600">Save current query as spell</span>
+            </div>
+          </div>
+        </section>
       </div>
 
       {/* Cloud consent modal */}

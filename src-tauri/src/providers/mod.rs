@@ -1,4 +1,7 @@
 use crate::models;
+mod google;
+
+pub use google::GeminiClient;
 
 /// Supported query modes.
 #[derive(Debug, Clone, PartialEq)]

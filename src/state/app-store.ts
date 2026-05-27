@@ -64,6 +64,12 @@ export interface SettingsState {
   setPrivacyMode: (v: PrivacyMode) => void;
 }
 
+export interface ProviderConfigState {
+  type: string;
+  url: string;
+  model: string;
+}
+
 export interface AppState {
   // Navigation
   activeView: "vault" | "workspace" | "spells" | "settings";
@@ -106,6 +112,8 @@ export interface AppState {
 
   // Settings
   settings: SettingsState;
+  activeProvider: ProviderConfigState;
+  setActiveProvider: (config: ProviderConfigState) => void;
 }
 
 const defaultSettings: SettingsState = {
@@ -202,4 +210,6 @@ export const useAppStore = create<AppState>((set) => ({
         settings: { ...state.settings, privacyMode: v },
       })),
   },
+  activeProvider: { type: "ollama", url: "http://localhost:11434", model: "llama3.2" },
+  setActiveProvider: (config) => set({ activeProvider: config }),
 }));

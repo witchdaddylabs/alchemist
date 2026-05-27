@@ -27,12 +27,7 @@
     "active": true,
     "targets": ["dmg"],
     "macOS": {
-      "minimumSystemVersion": "13.0",
-      "entitlements": "entitlements.plist",
-      "exceptionDomain": "",
-      "frameworks": [],
-      "providerShortName": null,
-      "signingIdentity": "-"
+      "minimumSystemVersion": "13.0"
     },
     "icon": [
       "icons/32x32.png",
@@ -41,17 +36,5 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
-  },
-  "plugins": {
-    "updater": {
-      "active": true,
-      "dialog": true,
-      "endpoints": [
-        "https://github.com/witchdaddylabs/alchemist/releases/latest/download/updater.json"
-      ],
-      "windows": {
-        "installMode": "passive"
-      }
-    }
   }
 }

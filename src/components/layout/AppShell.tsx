@@ -1,5 +1,6 @@
 import { Sidebar } from "@/components/layout/Sidebar";
 import { VaultScreen } from "@/features/vault/VaultScreen";
+import { Workspace } from "@/features/workspace/Workspace";
 import { useAppStore } from "@/state/app-store";
 
 export function AppShell() {
@@ -9,6 +10,8 @@ export function AppShell() {
     switch (activeView) {
       case "vault":
         return <VaultScreen />;
+      case "workspace":
+        return <Workspace />;
       case "spells":
         return (
           <div className="flex-1 flex items-center justify-center text-zinc-500">
@@ -19,12 +22,6 @@ export function AppShell() {
         return (
           <div className="flex-1 flex items-center justify-center text-zinc-500">
             Settings — Coming Soon
-          </div>
-        );
-      case "workspace":
-        return (
-          <div className="flex-1 flex items-center justify-center text-zinc-500">
-            Workspace — Coming Soon
           </div>
         );
       default:

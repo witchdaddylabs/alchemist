@@ -143,11 +143,13 @@ export function ChatPanel() {
 
     try {
       const { generateQuery } = await import("@/lib/tauri");
+      const activeProvider = useAppStore.getState().activeProvider;
 
       const result = await generateQuery({
         question,
-        // The backend will detect mode from the question and source type
-        providerType: "ollama",
+        providerType: activeProvider.type,
+        providerUrl: activeProvider.url,
+        providerModel: activeProvider.model,
       });
 
       if (result.sql) {

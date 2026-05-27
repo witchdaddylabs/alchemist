@@ -7,7 +7,7 @@ use crate::models::{
     ValidatedQuery,
 };
 use crate::palace;
-use crate::providers::{OllamaClient, OpenAIClient};
+use crate::providers::{GeminiClient, OllamaClient, OpenAIClient};
 use crate::validate;
 
 #[tauri::command]
@@ -108,6 +108,58 @@ pub async fn check_ollama() -> Result<ProviderHealth, String> {
 }
 
 #[tauri::command]
+pub async fn check_provider(
+    provider_type: String,
+    url: String,
+    model: String,
+    api_key: Option<String>,
+) -> Result<ProviderHealth, String> {
+    match provider_type.as_str() {
+        "openai" | "deepseek" => {
+            let key = api_key.unwrap_or_default();
+            let client = OpenAIClient::new(&url, &model, &key);
+            client.check_health().await
+        }
+        "google-ai" => {
+            let key = api_key.unwrap_or_default();
+            let client = GeminiClient::new(&url, &model, &key);
+            client.check_health().await
+        }
+        _ => {
+            let client = OllamaClient::new(&url, &model);
+            client.check_health().await
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn list_models(
+    provider_type: String,
+    url: String,
+    api_key: Option<String>,
+) -> Result<Vec<String>, String> {
+    match provider_type.as_str() {
+        "ollama" => {
+            let client = OllamaClient::new(&url, "");
+            let health = client.check_health().await?;
+            Ok(health.models)
+        }
+        "google-ai" => {
+            let key = api_key.unwrap_or_default();
+            let client = GeminiClient::new(&url, "gemini-2.5-flash", &key);
+            client.list_models().await
+        }
+        _ => {
+            // For OpenAI-compatible providers, hit the /models endpoint
+            let key = api_key.unwrap_or_default();
+            let client = OpenAIClient::new(&url, "", &key);
+            let health = client.check_health().await?;
+            Ok(health.models)
+        }
+    }
+}
+
+#[tauri::command]
 pub async fn generate_query(
     question: String,
     schema_json: Option<String>,
@@ -179,10 +231,21 @@ pub async fn generate_query(
 
     let raw_response = match provider.as_str() {
         "openai" => {
-            // Check if we have a stored key
             let api_key = crate::secret_store::get_key("openai_api_key")
                 .map_err(|_| "OpenAI API key not found. Please add one in Settings.".to_string())?;
             let client = OpenAIClient::new(&url, &model, &api_key);
+            client.generate(&prompt).await?
+        }
+        "deepseek" => {
+            let api_key = crate::secret_store::get_key("deepseek_api_key")
+                .map_err(|_| "DeepSeek API key not found. Please add one in Settings.".to_string())?;
+            let client = OpenAIClient::new(&url, &model, &api_key);
+            client.generate(&prompt).await?
+        }
+        "google-ai" => {
+            let api_key = crate::secret_store::get_key("google_ai_api_key")
+                .map_err(|_| "Google AI API key not found. Please add one in Settings.".to_string())?;
+            let client = GeminiClient::new(&url, &model, &api_key);
             client.generate(&prompt).await?
         }
         _ => {

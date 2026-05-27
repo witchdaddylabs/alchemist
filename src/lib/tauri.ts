@@ -64,6 +64,32 @@ export async function checkOllama() {
   return invoke<ProviderHealth>("check_ollama");
 }
 
+export async function checkProvider(
+  providerType: string,
+  url: string,
+  model: string,
+  apiKey?: string,
+) {
+  return invoke<ProviderHealth>("check_provider", {
+    providerType,
+    url,
+    model,
+    apiKey: apiKey ?? null,
+  });
+}
+
+export async function listModels(
+  providerType: string,
+  url: string,
+  apiKey?: string,
+) {
+  return invoke<string[]>("list_models", {
+    providerType,
+    url,
+    apiKey: apiKey ?? null,
+  });
+}
+
 export async function generateQuery(params: {
   question: string;
   schemaJson?: string;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Server,
   Shield,
@@ -28,6 +28,7 @@ import {
 import { useAppStore, type PrivacyMode } from "@/state/app-store";
 import { cn } from "@/lib/utils";
 import { CloudConsentModal } from "@/features/settings/CloudConsentModal";
+import { checkProvider, listModels, storeApiKey, deleteApiKey, checkApiKey } from "@/lib/tauri";
 
 type ProviderStatus = "unknown" | "connected" | "disconnected" | "error";
 
@@ -130,48 +131,132 @@ export function SettingsScreen() {
   const [showCloudModal, setShowCloudModal] = useState(false);
   const [fetchingModels, setFetchingModels] = useState<string | null>(null);
 
-  // Inline model editing — track which provider's model is being edited
+  // Inline model editing
   const [editingModel, setEditingModel] = useState<string | null>(null);
   const [editModelValue, setEditModelValue] = useState("");
+
+  // ── Mount: check existing keys + Ollama health ──
+
+  useEffect(() => {
+    const init = async () => {
+      // Check Ollama (no key needed)
+      try {
+        const health = await checkProvider("ollama", "http://localhost:11434", "llama3.2");
+        setProviders((prev) =>
+          prev.map((p) =>
+            p.id === "ollama"
+              ? {
+                  ...p,
+                  status: health.reachable ? "connected" : "disconnected",
+                  lastChecked: health.reachable ? "Just now" : null,
+                }
+              : p
+          )
+        );
+      } catch {
+        // Ollama not running — leave as unknown
+      }
+
+      // Check cloud provider keys
+      for (const p of initialProviders) {
+        if (p.type !== "cloud") continue;
+        const keyAccount = `${p.id}_api_key`;
+        try {
+          const exists = await checkApiKey(keyAccount);
+          setApiKeys((prev) => ({
+            ...prev,
+            [p.id]: { ...prev[p.id], saved: exists, show: false, key: exists ? "••••••••" : "" },
+          }));
+          setProviders((prev) =>
+            prev.map((pr) => (pr.id === p.id ? { ...pr, hasKey: exists } : pr))
+          );
+        } catch {
+          // Key check failed — leave as default
+        }
+      }
+    };
+    init();
+  }, []);
 
   // ── Connection test ──
 
   const handleTestConnection = async (id: string) => {
     setTestingProvider(id);
-    await new Promise((r) => setTimeout(r, 1200));
     setProviders((prev) =>
       prev.map((p) =>
-        p.id === id
-          ? { ...p, status: "connected" as ProviderStatus, lastChecked: "Just now" }
-          : p
+        p.id === id ? { ...p, status: "unknown" as ProviderStatus } : p
       )
     );
+
+    try {
+      const provider = providers.find((p) => p.id === id);
+      if (!provider) return;
+
+      const key = apiKeys[id]?.key || undefined;
+      const health = await checkProvider(id, provider.url, provider.model, key);
+
+      setProviders((prev) =>
+        prev.map((p) =>
+          p.id === id
+            ? {
+                ...p,
+                status: health.reachable ? ("connected" as ProviderStatus) : ("error" as ProviderStatus),
+                lastChecked: "Just now",
+              }
+            : p
+        )
+      );
+    } catch (err) {
+      setProviders((prev) =>
+        prev.map((p) =>
+          p.id === id
+            ? { ...p, status: "error" as ProviderStatus, lastChecked: "Just now" }
+            : p
+        )
+      );
+    }
+
     setTestingProvider(null);
   };
 
   // ── API key management ──
 
-  const handleSaveApiKey = (id: string) => {
+  const handleSaveApiKey = async (id: string) => {
     const key = apiKeys[id]?.key;
     if (!key?.trim()) return;
-    setApiKeys((prev) => ({ ...prev, [id]: { ...prev[id], saved: true } }));
-    setProviders((prev) =>
-      prev.map((p) =>
-        p.id === id ? { ...p, hasKey: true, status: "connected" } : p
-      )
-    );
+    if (key === "••••••••") return; // Already saved, no change
+
+    const keyAccount = `${id}_api_key`;
+
+    try {
+      await storeApiKey(keyAccount, key.trim());
+      setApiKeys((prev) => ({ ...prev, [id]: { ...prev[id], saved: true, key: "••••••••" } }));
+      setProviders((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, hasKey: true } : p))
+      );
+    } catch (err) {
+      console.error("Failed to save key:", err);
+    }
+
     setTimeout(() => {
       setApiKeys((prev) => ({ ...prev, [id]: { ...prev[id], saved: false } }));
     }, 2000);
   };
 
-  const handleRemoveKey = (id: string) => {
-    setApiKeys((prev) => ({ ...prev, [id]: { key: "", saved: false, show: false } }));
-    setProviders((prev) =>
-      prev.map((p) =>
-        p.id === id ? { ...p, hasKey: false, status: "disconnected" } : p
-      )
-    );
+  const handleRemoveKey = async (id: string) => {
+    const keyAccount = `${id}_api_key`;
+
+    try {
+      await deleteApiKey(keyAccount);
+      setApiKeys((prev) => ({ ...prev, [id]: { key: "", saved: false, show: false } }));
+      setProviders((prev) =>
+        prev.map((p) =>
+          p.id === id ? { ...p, hasKey: false, status: "disconnected" as ProviderStatus } : p
+        )
+      );
+    } catch (err) {
+      console.error("Failed to remove key:", err);
+    }
   };
 
   const toggleShowKey = (id: string) => {
@@ -202,26 +287,25 @@ export function SettingsScreen() {
     setEditingModel(null);
   };
 
-  // ── Fetch available models (stubbed — real impl hits the API) ──
+  // ── Fetch available models from provider API ──
 
   const handleFetchModels = async (id: string) => {
     setFetchingModels(id);
-    await new Promise((r) => setTimeout(r, 1000));
 
-    // Simulated model list lookup — in production this queries the provider API
-    const modelMap: Record<string, string[]> = {
-      openai: ["gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano", "gpt-4o", "gpt-4o-mini", "o3", "o4-mini"],
-      deepseek: ["deepseek-v4-flash", "deepseek-v4-pro", "deepseek-chat", "deepseek-reasoner"],
-      "google-ai": ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash", "gemini-2.0-flash-lite"],
-      ollama: ["llama3.2", "llama3.1", "mistral", "codellama", "mixtral", "qwen2.5"],
-    };
+    try {
+      const provider = providers.find((p) => p.id === id);
+      if (!provider) return;
 
-    // Auto-select the best model from the list (first in array = recommended)
-    const models = modelMap[id];
-    if (models && models.length > 0) {
-      setProviders((prev) =>
-        prev.map((p) => (p.id === id ? { ...p, model: models[0] } : p))
-      );
+      const key = apiKeys[id]?.key || undefined;
+      const models = await listModels(id, provider.url, key);
+
+      if (models.length > 0) {
+        setProviders((prev) =>
+          prev.map((p) => (p.id === id ? { ...p, model: models[0] } : p))
+        );
+      }
+    } catch (err) {
+      console.error("Failed to fetch models:", err);
     }
 
     setFetchingModels(null);

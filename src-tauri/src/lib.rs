@@ -30,6 +30,8 @@ pub fn run() {
             app::parse_mempalace,
             app::check_ollama,
             app::generate_query,
+            app::check_provider,
+            app::list_models,
             app::get_provider_config,
             app::store_api_key,
             app::check_api_key,

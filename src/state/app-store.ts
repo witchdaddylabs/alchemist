@@ -10,6 +10,20 @@ export interface RecentSource {
   summary: string;
 }
 
+const LAST_SOURCE_KEY = "alchemist_last_source";
+
+export function persistLastSource(source: RecentSource) {
+  try {
+    localStorage.setItem(LAST_SOURCE_KEY, JSON.stringify(source));
+  } catch {
+    // localStorage might be full or disabled
+  }
+}
+
+export function clearLastSource() {
+  localStorage.removeItem(LAST_SOURCE_KEY);
+}
+
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
@@ -110,11 +124,14 @@ export const useAppStore = create<AppState>((set) => ({
   // Data source
   activeSource: null,
   dataSourceType: null,
-  setActiveSource: (source) =>
+  setActiveSource: (source) => {
+    if (source) persistLastSource(source);
+    else clearLastSource();
     set({
       activeSource: source,
       dataSourceType: source?.type ?? null,
-    }),
+    });
+  },
 
   // Recent sources
   recentSources: [],

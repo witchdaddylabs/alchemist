@@ -281,8 +281,14 @@ export function VaultScreen() {
           <div className="flex flex-col gap-2">
             {recentSources.length === 0 ? (
               <div className="text-center py-8">
-                <p className="text-sm text-zinc-600">
-                  No recent databases. Open one to get started.
+                <p className="text-sm text-zinc-600 mb-1">
+                  No recent databases.
+                </p>
+                <p className="text-xs text-zinc-700">
+                  Open a database or YAML file, or ensure MemPalace is configured at{' '}
+                  <code className="text-[10px] px-1 py-0.5 rounded bg-white/[0.04] text-zinc-500">
+                    ~/.mempalace/
+                  </code>
                 </p>
               </div>
             ) : (

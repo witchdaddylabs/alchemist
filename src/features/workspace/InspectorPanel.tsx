@@ -1,6 +1,9 @@
-import { Database, Cpu, Check } from "lucide-react";
+import { Database, Cpu, Check, Layers } from "lucide-react";
 import { useAppStore } from "@/state/app-store";
 import { cn } from "@/lib/utils";
+import { useState, useEffect } from "react";
+import { parseMempalace } from "@/lib/tauri";
+import type { MemPalaceStructure } from "@/lib/tauri";
 
 const safetyChecks = [
   { label: "Read-Only Connected", passed: true },
@@ -12,11 +15,20 @@ const safetyChecks = [
 export function InspectorPanel() {
   const activeSource = useAppStore((s) => s.activeSource);
   const dataSourceType = useAppStore((s) => s.dataSourceType);
+  const [palace, setPalace] = useState<MemPalaceStructure | null>(null);
+
+  useEffect(() => {
+    if (dataSourceType === "mempalace" && activeSource) {
+      parseMempalace(activeSource.path).then(setPalace).catch(() => setPalace(null));
+    } else {
+      setPalace(null);
+    }
+  }, [activeSource?.path, dataSourceType]);
 
   if (!activeSource) {
     return (
       <div className="w-64 lg:w-72 h-full flex flex-col bg-[#0d0d14] border-l border-white/[0.06]">
-        <Section title="DATABASE">
+        <Section title="DATA SOURCE">
           <p className="text-xs text-zinc-600">No database open.</p>
         </Section>
         <Section title="MODEL">
@@ -31,7 +43,7 @@ export function InspectorPanel() {
     : "—";
 
   return (
-    <div className="w-64 lg:w-72 h-full flex flex-col bg-[#0d0d14] border-l border-white/[0.06]">
+    <div className="w-64 lg:w-72 h-full flex flex-col bg-[#0d0d14] border-l border-white/[0.06] overflow-y-auto">
       {/* Database section */}
       <Section title="DATA SOURCE">
         <div className="flex items-start gap-3 mb-3">
@@ -46,10 +58,10 @@ export function InspectorPanel() {
               {dataSourceType === "sqlite"
                 ? "SQLite Database"
                 : dataSourceType === "chromadb"
-                ? "ChromaDB Palace"
-                : dataSourceType === "mempalace"
-                ? "MemPalace YAML"
-                : "Unknown"}
+                  ? "ChromaDB Palace"
+                  : dataSourceType === "mempalace"
+                    ? "MemPalace"
+                    : "Unknown"}
             </p>
           </div>
         </div>
@@ -60,6 +72,42 @@ export function InspectorPanel() {
           <DetailRow label="Opened" value={openedDate} />
         </div>
       </Section>
+
+      {/* Palace structure section */}
+      {dataSourceType === "mempalace" && palace && (
+        <Section title="STRUCTURE">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Layers className="w-3.5 h-3.5 text-violet-400" />
+              <span className="text-xs text-zinc-500">Wings</span>
+              <span className="text-xs text-zinc-200 font-medium ml-auto">{palace.totalWings}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Database className="w-3.5 h-3.5 text-violet-400" />
+              <span className="text-xs text-zinc-500">Rooms</span>
+              <span className="text-xs text-zinc-200 font-medium ml-auto">{palace.totalRooms}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Cpu className="w-3.5 h-3.5 text-violet-400" />
+              <span className="text-xs text-zinc-500">Drawers</span>
+              <span className="text-xs text-zinc-200 font-medium ml-auto">{palace.totalDrawers}</span>
+            </div>
+          </div>
+
+          {/* Per-wing breakdown */}
+          <div className="mt-3 space-y-1">
+            {palace.wings.map((wing) => (
+              <div key={wing.name} className="flex items-center gap-2 text-xs text-zinc-500">
+                <span className="w-2 h-2 rounded-full bg-violet-500/40 shrink-0" />
+                <span className="truncate flex-1">{wing.name}</span>
+                <span className="text-[10px] text-zinc-600">
+                  {wing.rooms.length}r / {wing.rooms.reduce((s, r) => s + r.drawers.length, 0)}d
+                </span>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
 
       {/* Model section */}
       <Section title="MODEL">

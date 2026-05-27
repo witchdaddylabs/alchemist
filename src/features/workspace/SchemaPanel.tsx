@@ -1,5 +1,13 @@
 import { useState } from "react";
-import { ChevronRight, Table, Columns, Search } from "lucide-react";
+import {
+  ChevronRight,
+  Table,
+  Columns,
+  Search,
+  Layers,
+  FolderOpen,
+  FileText,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import type { TableSchema, CollectionInfo, MemPalaceStructure } from "@/lib/tauri";
@@ -15,6 +23,8 @@ export function SchemaPanel({ tables, collections, palace }: SchemaPanelProps) {
   const dataSourceType = useAppStore((s) => s.dataSourceType);
   const [search, setSearch] = useState("");
   const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set());
+  const [expandedWings, setExpandedWings] = useState<Set<string>>(new Set());
+  const [expandedRooms, setExpandedRooms] = useState<Set<string>>(new Set());
 
   const toggleTable = (name: string) => {
     setExpandedTables((prev) => {
@@ -25,9 +35,34 @@ export function SchemaPanel({ tables, collections, palace }: SchemaPanelProps) {
     });
   };
 
-  const title = dataSourceType === "chromadb" ? "COLLECTIONS" 
-    : dataSourceType === "mempalace" ? "PALACE" 
-    : "SCHEMA";
+  const toggleWing = (name: string) => {
+    setExpandedWings((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  };
+
+  const toggleRoom = (name: string) => {
+    setExpandedRooms((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  };
+
+  const title =
+    dataSourceType === "chromadb"
+      ? "COLLECTIONS"
+      : dataSourceType === "mempalace"
+        ? "PALACE"
+        : "SCHEMA";
+
+  const filteredWings = palace?.wings.filter(
+    (w) => !search || w.name.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <div className="w-64 lg:w-72 h-full flex flex-col bg-[#0d0d14] border-r border-white/[0.06]">
@@ -60,12 +95,72 @@ export function SchemaPanel({ tables, collections, palace }: SchemaPanelProps) {
             />
           ))
         ) : dataSourceType === "mempalace" ? (
-          palace?.wings.map((wing) => (
-            <SchemaItem
-              key={wing.name}
-              label={wing.name}
-              subtitle={`${wing.rooms.length} rooms`}
-            />
+          filteredWings?.map((wing) => (
+            <div key={wing.name}>
+              <button
+                onClick={() => toggleWing(wing.name)}
+                className={cn(
+                  "flex items-center gap-2 w-full px-2.5 py-1.5 rounded-lg text-sm transition-colors",
+                  expandedWings.has(wing.name)
+                    ? "bg-violet-600/10 text-violet-300"
+                    : "text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]"
+                )}
+              >
+                <ChevronRight
+                  className={cn(
+                    "w-3.5 h-3.5 transition-transform shrink-0",
+                    expandedWings.has(wing.name) && "rotate-90"
+                  )}
+                />
+                <Layers className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate flex-1 text-left">{wing.name}</span>
+                <span className="text-[10px] text-zinc-600">{wing.rooms.length} rooms</span>
+              </button>
+
+              {expandedWings.has(wing.name) && (
+                <div className="ml-4 mt-0.5 space-y-0.5">
+                  {wing.rooms.map((room) => (
+                    <div key={room.name}>
+                      <button
+                        onClick={() => toggleRoom(room.name)}
+                        className={cn(
+                          "flex items-center gap-2 w-full px-2.5 py-1 rounded-lg text-xs transition-colors",
+                          expandedRooms.has(room.name)
+                            ? "bg-white/[0.06] text-zinc-200"
+                            : "text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.03]"
+                        )}
+                      >
+                        <ChevronRight
+                          className={cn(
+                            "w-3 h-3 transition-transform shrink-0",
+                            expandedRooms.has(room.name) && "rotate-90"
+                          )}
+                        />
+                        <FolderOpen className="w-3 h-3 shrink-0" />
+                        <span className="truncate flex-1 text-left">{room.name}</span>
+                        <span className="text-[10px] text-zinc-600">
+                          {room.drawers.length} drawers
+                        </span>
+                      </button>
+
+                      {expandedRooms.has(room.name) && (
+                        <div className="ml-4 mt-0.5 space-y-0.5">
+                          {room.drawers.map((drawer, i) => (
+                            <div
+                              key={`${drawer.name}-${i}`}
+                              className="flex items-center gap-2 px-2.5 py-1 rounded text-xs text-zinc-500 hover:text-zinc-400"
+                            >
+                              <FileText className="w-3 h-3 shrink-0" />
+                              <span className="truncate flex-1">{drawer.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           ))
         ) : (
           tables

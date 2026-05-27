@@ -1,5 +1,10 @@
+use crate::chroma;
 use crate::db;
-use crate::models::{QueryResult, TableSchema, VaultSummary, ValidatedQuery};
+use crate::models::{
+    CollectionInfo, MemPalaceStructure, PalaceDiscovery, PalaceInfo, QueryResult,
+    SearchResult, TableSchema, VaultSummary, ValidatedQuery,
+};
+use crate::palace;
 use crate::validate;
 
 #[tauri::command]
@@ -24,10 +29,7 @@ pub fn validate_sql(sql: String) -> Result<ValidatedQuery, String> {
 
 #[tauri::command]
 pub fn validate_and_run(path: String, sql: String) -> Result<QueryResult, String> {
-    // Validate first
     let validated = validate::validate_sql(&sql).map_err(|e| e.to_string())?;
-
-    // Check all critical checks passed
     let critical_failed: Vec<_> = validated
         .checks
         .iter()
@@ -45,11 +47,51 @@ pub fn validate_and_run(path: String, sql: String) -> Result<QueryResult, String
         ));
     }
 
-    // Run the validated (and possibly amended) SQL
     db::run_query(&path, &validated.final_sql).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn app_ping() -> String {
     "Alchemist backend awake".to_string()
+}
+
+// ── ChromaDB / Palace commands ──
+
+#[tauri::command]
+pub fn discover_palace(path: String) -> Result<PalaceDiscovery, String> {
+    chroma::discover_palace(&path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn list_collections(palace_path: String) -> Result<Vec<CollectionInfo>, String> {
+    chroma::list_collections(&palace_path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn search_documents(
+    palace_path: String,
+    query: String,
+    collection_name: Option<String>,
+    limit: Option<usize>,
+) -> Result<Vec<SearchResult>, String> {
+    let max_results = limit.unwrap_or(20);
+    chroma::search_documents(
+        &palace_path,
+        &query,
+        collection_name.as_deref(),
+        max_results,
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_palace_info(palace_path: String) -> Result<PalaceInfo, String> {
+    chroma::get_palace_info(&palace_path).map_err(|e| e.to_string())
+}
+
+// ── MemPalace commands ──
+
+#[tauri::command]
+pub fn parse_mempalace(path: Option<String>) -> Result<MemPalaceStructure, String> {
+    palace::discover_and_parse(path.as_deref()).map_err(|e| e.to_string())
 }

@@ -78,3 +78,95 @@ pub struct Spell {
     pub updated_at: String,
     pub run_count: u64,
 }
+
+// ── ChromaDB / Palace types ──
+
+/// Result of discovering a ChromaDB persistence directory.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PalaceDiscovery {
+    pub path: String,
+    pub file_name: String,
+    pub parent_directory: String,
+    pub size_bytes: u64,
+    pub collection_count: usize,
+    pub total_documents: usize,
+    pub segment_count: usize,
+}
+
+/// Detailed info about a ChromaDB collection.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CollectionInfo {
+    pub id: String,
+    pub name: String,
+    pub dimension: Option<usize>,
+    pub document_count: usize,
+    pub config_json: String,
+}
+
+/// A single document hit from a search.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchResult {
+    pub embedding_id: usize,
+    pub segment_id: String,
+    pub document_text: String,
+    pub metadata: std::collections::HashMap<String, String>,
+    pub relevance_hint: String,
+    pub score: Option<f64>,
+    pub created_at: String,
+}
+
+/// Combined palace info (discovery + collections).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PalaceInfo {
+    pub discovery: PalaceDiscovery,
+    pub collections: Vec<CollectionInfo>,
+}
+
+// ── MemPalace YAML types ──
+
+/// Full parsed MemPalace structure.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MemPalaceStructure {
+    pub wings: Vec<WingStructure>,
+    pub total_wings: usize,
+    pub total_rooms: usize,
+    pub total_drawers: usize,
+    pub source_file: String,
+}
+
+/// A single wing in the palace.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WingStructure {
+    pub name: String,
+    pub path: Option<String>,
+    pub rooms: Vec<RoomStructure>,
+    pub room_count: Option<usize>,
+}
+
+/// A single room within a wing.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RoomStructure {
+    pub name: String,
+    pub keywords: Vec<String>,
+    pub entities: Vec<String>,
+    pub drawers: Vec<DrawerStructure>,
+    pub drawer_count: Option<usize>,
+}
+
+/// A single drawer within a room.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DrawerStructure {
+    pub name: String,
+    pub keywords: Vec<String>,
+    pub descriptions: Vec<String>,
+    pub entities: Vec<String>,
+    pub drawer_count: Option<usize>,
+}

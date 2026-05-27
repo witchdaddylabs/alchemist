@@ -6,6 +6,7 @@ pub enum AppError {
     Io(String),
     Validation(String),
     NotFound(String),
+    Yaml(String),
     Internal(String),
 }
 
@@ -16,6 +17,7 @@ impl fmt::Display for AppError {
             AppError::Io(msg) => write!(f, "IO error: {}", msg),
             AppError::Validation(msg) => write!(f, "Validation error: {}", msg),
             AppError::NotFound(msg) => write!(f, "Not found: {}", msg),
+            AppError::Yaml(msg) => write!(f, "YAML error: {}", msg),
             AppError::Internal(msg) => write!(f, "Internal error: {}", msg),
         }
     }
@@ -36,6 +38,12 @@ impl From<std::io::Error> for AppError {
 impl From<serde_json::Error> for AppError {
     fn from(e: serde_json::Error) -> Self {
         AppError::Internal(e.to_string())
+    }
+}
+
+impl From<serde_yaml::Error> for AppError {
+    fn from(e: serde_yaml::Error) -> Self {
+        AppError::Yaml(e.to_string())
     }
 }
 

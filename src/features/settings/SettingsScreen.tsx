@@ -88,6 +88,17 @@ const initialProviders: ProviderState[] = [
     hasKey: false,
     lastChecked: null,
   },
+  {
+    id: "custom",
+    name: "Custom",
+    type: "cloud",
+    icon: <Server className="w-5 h-5" />,
+    status: "disconnected",
+    model: "gpt-4o-mini",
+    url: "",
+    hasKey: false,
+    lastChecked: null,
+  },
 ];
 
 type ApiKeysState = Record<string, { key: string; saved: boolean; show: boolean }>;
@@ -107,6 +118,7 @@ const providerColors: Record<string, string> = {
   openai: "cyan",
   deepseek: "blue",
   "google-ai": "emerald",
+  custom: "amber",
 };
 
 const badgeColors: Record<string, string> = {
@@ -114,6 +126,7 @@ const badgeColors: Record<string, string> = {
   cyan: "text-cyan-400 border-cyan-500/20",
   blue: "text-blue-400 border-blue-500/20",
   emerald: "text-emerald-400 border-emerald-500/20",
+  amber: "text-amber-400 border-amber-500/20",
 };
 
 const iconBgColors: Record<string, string> = {
@@ -121,6 +134,7 @@ const iconBgColors: Record<string, string> = {
   cyan: "bg-cyan-600/15 text-cyan-400",
   blue: "bg-blue-600/15 text-blue-400",
   emerald: "bg-emerald-600/15 text-emerald-400",
+  amber: "bg-amber-600/15 text-amber-400",
 };
 
 export function SettingsScreen() {
@@ -134,6 +148,10 @@ export function SettingsScreen() {
   // Inline model editing
   const [editingModel, setEditingModel] = useState<string | null>(null);
   const [editModelValue, setEditModelValue] = useState("");
+
+  // Inline URL editing
+  const [editingUrl, setEditingUrl] = useState<string | null>(null);
+  const [editUrlValue, setEditUrlValue] = useState("");
 
   // ── Mount: check existing keys + Ollama health ──
 
@@ -326,6 +344,26 @@ export function SettingsScreen() {
     setEditingModel(null);
   };
 
+  // ── Inline URL editing ──
+
+  const startEditUrl = (id: string, currentUrl: string) => {
+    setEditingUrl(id);
+    setEditUrlValue(currentUrl);
+  };
+
+  const saveEditUrl = (id: string) => {
+    if (editUrlValue.trim()) {
+      setProviders((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, url: editUrlValue.trim() } : p))
+      );
+    }
+    setEditingUrl(null);
+  };
+
+  const cancelEditUrl = () => {
+    setEditingUrl(null);
+  };
+
   // ── Fetch available models from provider API ──
 
   const handleFetchModels = async (id: string) => {
@@ -514,9 +552,35 @@ export function SettingsScreen() {
                     </span>
                     <span>
                       URL:{" "}
-                      <span className="font-mono text-zinc-400">
-                        {provider.url}
-                      </span>
+                      {editingUrl === provider.id ? (
+                        <span className="inline-flex items-center gap-1">
+                          <Input
+                            value={editUrlValue}
+                            onChange={(e) => setEditUrlValue(e.target.value)}
+                            className="h-7 w-64 text-xs font-mono bg-black/40 border-white/[0.08] text-zinc-200 rounded-md px-2"
+                            autoFocus
+                            placeholder="https://api.openai.com/v1"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") saveEditUrl(provider.id);
+                              if (e.key === "Escape") cancelEditUrl();
+                            }}
+                            onBlur={() => saveEditUrl(provider.id)}
+                          />
+                        </span>
+                      ) : (
+                        <>
+                          <span className="font-mono text-zinc-400">
+                            {provider.url || "(not set)"}
+                          </span>
+                          <button
+                            onClick={() => startEditUrl(provider.id, provider.url)}
+                            className="text-zinc-700 hover:text-zinc-400 transition-colors ml-1"
+                            title="Edit URL"
+                          >
+                            <Pencil className="w-3 h-3" />
+                          </button>
+                        </>
+                      )}
                     </span>
                     {provider.lastChecked && (
                       <span>
@@ -545,6 +609,7 @@ export function SettingsScreen() {
                         <span className="text-[10px] text-zinc-700 ml-1">
                           {provider.id === "deepseek" && "(OpenAI-compatible)"}
                           {provider.id === "google-ai" && "(Gemini API)"}
+                          {provider.id === "custom" && "(vLLM, Groq, Together, etc.)"}
                         </span>
                       </div>
                       {provider.hasKey ? (

@@ -5,6 +5,8 @@ import {
   Play,
   Pencil,
   Bookmark,
+  X,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -240,6 +242,10 @@ export function ChatPanel() {
   const [isRunning, setIsRunning] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [hasRunQuery, setHasRunQuery] = useState(false);
+  const [showSaveSpell, setShowSaveSpell] = useState(false);
+  const [saveSpellName, setSaveSpellName] = useState("");
+  const [saveSpellDesc, setSaveSpellDesc] = useState("");
+  const [saveSpellTags, setSaveSpellTags] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -301,6 +307,28 @@ LIMIT 100;`;
       e.preventDefault();
       handleSend();
     }
+  };
+
+  const handleSaveSpell = () => {
+    if (!generatedSql || !saveSpellName.trim()) return;
+    const addSpell = useAppStore.getState().addSpell;
+    addSpell({
+      id: crypto.randomUUID(),
+      name: saveSpellName.trim(),
+      description: saveSpellDesc.trim(),
+      sql: generatedSql,
+      mode: "sql",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      tags: saveSpellTags
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean),
+    });
+    setSaveSpellName("");
+    setSaveSpellDesc("");
+    setSaveSpellTags("");
+    setShowSaveSpell(false);
   };
 
   return (
@@ -403,6 +431,7 @@ LIMIT 100;`;
               </Button>
               <Button
                 variant="outline"
+                onClick={() => setShowSaveSpell(true)}
                 className="h-9 px-4 rounded-lg text-xs font-medium border-white/[0.1] text-zinc-300 hover:text-zinc-100 hover:bg-white/[0.06]"
               >
                 <Bookmark className="w-3.5 h-3.5 mr-1.5" />
@@ -485,6 +514,82 @@ LIMIT 100;`;
             setShowPreview(false);
           }}
         />
+      )}
+
+      {/* Save Spell Modal */}
+      {showSaveSpell && generatedSql && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-md mx-4 rounded-2xl border border-white/[0.1] bg-[#0d0d14] shadow-2xl shadow-black/50 overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
+              <h2 className="text-sm font-semibold text-zinc-100">Save as Spell</h2>
+              <button
+                onClick={() => setShowSaveSpell(false)}
+                className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-white/[0.08] transition-colors"
+              >
+                <X className="w-4 h-4 text-zinc-500" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="text-xs text-zinc-500 font-medium mb-1.5 block">
+                  Name
+                </label>
+                <input
+                  value={saveSpellName}
+                  onChange={(e) => setSaveSpellName(e.target.value)}
+                  placeholder="e.g., Latest Ideas Query"
+                  className="w-full h-9 px-3 text-sm bg-white/[0.04] border border-white/[0.08] text-zinc-200 placeholder:text-zinc-600 rounded-xl focus:outline-none focus:border-violet-500/40"
+                  autoFocus
+                  onKeyDown={(e) => e.key === "Enter" && handleSaveSpell()}
+                />
+              </div>
+              <div>
+                <label className="text-xs text-zinc-500 font-medium mb-1.5 block">
+                  Description
+                </label>
+                <input
+                  value={saveSpellDesc}
+                  onChange={(e) => setSaveSpellDesc(e.target.value)}
+                  placeholder="What does this spell do?"
+                  className="w-full h-9 px-3 text-sm bg-white/[0.04] border border-white/[0.08] text-zinc-200 placeholder:text-zinc-600 rounded-xl focus:outline-none focus:border-violet-500/40"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-zinc-500 font-medium mb-1.5 block">
+                  Tags (comma separated)
+                </label>
+                <input
+                  value={saveSpellTags}
+                  onChange={(e) => setSaveSpellTags(e.target.value)}
+                  placeholder="ideas, search, local-first"
+                  className="w-full h-9 px-3 text-sm bg-white/[0.04] border border-white/[0.08] text-zinc-200 placeholder:text-zinc-600 rounded-xl focus:outline-none focus:border-violet-500/40"
+                />
+              </div>
+              <div className="rounded-lg bg-black/40 border border-white/[0.04] px-3 py-2 max-h-20 overflow-y-auto">
+                <code className="text-[11px] text-zinc-500 font-mono leading-relaxed">
+                  {generatedSql}
+                </code>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2.5 px-5 py-4 border-t border-white/[0.06] bg-white/[0.02]">
+              <Button
+                variant="ghost"
+                onClick={() => setShowSaveSpell(false)}
+                className="h-9 px-4 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.06]"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveSpell}
+                disabled={!saveSpellName.trim()}
+                className="h-9 px-5 rounded-lg text-xs font-medium bg-violet-600 hover:bg-violet-500 text-white disabled:opacity-50"
+              >
+                <Check className="w-3.5 h-3.5 mr-1.5" />
+                Save Spell
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -1,6 +1,8 @@
 import { Sidebar } from "@/components/layout/Sidebar";
 import { VaultScreen } from "@/features/vault/VaultScreen";
 import { Workspace } from "@/features/workspace/Workspace";
+import { SpellsScreen } from "@/features/spells/SpellsScreen";
+import { SettingsScreen } from "@/features/settings/SettingsScreen";
 import { useAppStore } from "@/state/app-store";
 
 export function AppShell() {
@@ -13,17 +15,9 @@ export function AppShell() {
       case "workspace":
         return <Workspace />;
       case "spells":
-        return (
-          <div className="flex-1 flex items-center justify-center text-zinc-500">
-            Spells — Coming Soon
-          </div>
-        );
+        return <SpellsScreen />;
       case "settings":
-        return (
-          <div className="flex-1 flex items-center justify-center text-zinc-500">
-            Settings — Coming Soon
-          </div>
-        );
+        return <SettingsScreen />;
       default:
         return <VaultScreen />;
     }

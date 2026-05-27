@@ -36,6 +36,10 @@ pub fn run() {
             app::store_api_key,
             app::check_api_key,
             app::delete_api_key,
+            app::save_spells,
+            app::load_spells,
+            app::save_config,
+            app::load_config,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

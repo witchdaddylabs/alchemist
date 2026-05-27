@@ -104,6 +104,19 @@ export function ChatPanel() {
   const [hasRunQuery, setHasRunQuery] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [executionError, setExecutionError] = useState<string | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  // Elapsed timer for running queries
+  useEffect(() => {
+    if (!isRunning) {
+      setElapsedSeconds(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      setElapsedSeconds((s) => s + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isRunning]);
 
   // Save spell modal
   const [showSaveSpell, setShowSaveSpell] = useState(false);
@@ -165,7 +178,25 @@ export function ChatPanel() {
         );
       }
     } catch (err) {
-      setGenerationError(String(err));
+      const errorStr = String(err);
+      // Provide helpful provider-specific messages
+      let userMessage = errorStr;
+      const provider = useAppStore.getState().activeProvider;
+      if (
+        errorStr.includes("Connection refused") ||
+        errorStr.includes("Ollama request failed") ||
+        errorStr.includes("error sending request")
+      ) {
+        userMessage =
+          provider.type === "ollama"
+            ? `**Ollama is not running.** Start it with \`ollama serve\` or check your Settings → AI Providers.`
+            : `**${provider.type === "google-ai" ? "Gemini" : provider.type === "deepseek" ? "DeepSeek" : provider.type === "openai" ? "OpenAI" : "Provider"} is not reachable.** Check the URL and API key in Settings → AI Providers.`;
+      } else if (errorStr.includes("API key not found")) {
+        userMessage = `**No API key saved for ${provider.type === "google-ai" ? "Google AI Studio" : provider.type === "deepseek" ? "DeepSeek" : provider.type === "openai" ? "OpenAI" : "this provider"}.** Go to Settings → AI Providers to add one.`;
+      } else if (errorStr.includes("401") || errorStr.includes("403")) {
+        userMessage = `**Authentication failed.** The API key for ${provider.type === "google-ai" ? "Google AI Studio" : provider.type === "deepseek" ? "DeepSeek" : provider.type === "openai" ? "OpenAI" : "this provider"} may be invalid. Check it in Settings → AI Providers.`;
+      }
+      setGenerationError(userMessage);
     }
 
     setIsGenerating(false);
@@ -468,6 +499,11 @@ export function ChatPanel() {
                   </span>
                   ...
                 </span>
+                {elapsedSeconds > 0 && (
+                  <span className="text-[10px] text-zinc-600 font-mono">
+                    {elapsedSeconds}s
+                  </span>
+                )}
               </div>
             </div>
           </div>

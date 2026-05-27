@@ -1,4 +1,5 @@
 import { Sidebar } from "@/components/layout/Sidebar";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { VaultScreen } from "@/features/vault/VaultScreen";
 import { Workspace } from "@/features/workspace/Workspace";
 import { SpellsScreen } from "@/features/spells/SpellsScreen";
@@ -25,15 +26,15 @@ export function AppShell() {
   const renderView = () => {
     switch (activeView) {
       case "vault":
-        return <VaultScreen />;
+        return <ErrorBoundary name="Vaults"><VaultScreen /></ErrorBoundary>;
       case "workspace":
-        return <Workspace />;
+        return <ErrorBoundary name="Workspace"><Workspace /></ErrorBoundary>;
       case "spells":
-        return <SpellsScreen />;
+        return <ErrorBoundary name="Spells"><SpellsScreen /></ErrorBoundary>;
       case "settings":
-        return <SettingsScreen />;
+        return <ErrorBoundary name="Settings"><SettingsScreen /></ErrorBoundary>;
       default:
-        return <VaultScreen />;
+        return <ErrorBoundary name="Vaults"><VaultScreen /></ErrorBoundary>;
     }
   };
 

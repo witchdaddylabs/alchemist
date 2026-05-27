@@ -124,6 +124,24 @@ export async function deleteApiKey(account: string) {
   return invoke<void>("delete_api_key", { account });
 }
 
+// ── Persistence commands ──
+
+export async function saveSpells(spellsJson: string) {
+  return invoke<void>("save_spells", { spellsJson });
+}
+
+export async function loadSpells() {
+  return invoke<string>("load_spells");
+}
+
+export async function saveConfig(configJson: string) {
+  return invoke<void>("save_config", { configJson });
+}
+
+export async function loadConfig() {
+  return invoke<string>("load_config");
+}
+
 // ── Types ──
 
 export interface VaultSummary {

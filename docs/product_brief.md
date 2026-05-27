@@ -85,6 +85,8 @@ Alchemist is a native macOS application that:
 
 ## Roadmap (high level)
 
+> **⚠️ Current status:** Frontend UI built with mock data. Rust backend is real and compiles. See Obsidian note for detailed migration sprints.
+
 1. **MVP (v0.1):** macOS app with SQLite support, local model integration, basic charts, saved queries.
 2. **v0.2:** ChromaDB vector search + MemPalace integration — query your palace by meaning, browse structure, combined results.
 3. **v0.3:** Postgres/Supabase read-only support; plugin architecture for other database types.

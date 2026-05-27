@@ -11,36 +11,53 @@ const safetyChecks = [
 
 export function InspectorPanel() {
   const activeSource = useAppStore((s) => s.activeSource);
+  const dataSourceType = useAppStore((s) => s.dataSourceType);
 
-  // Sample metadata — would come from Tauri commands
-  const dbInfo = {
-    name: activeSource?.fileName ?? "No database open",
-    path: activeSource?.path ?? "—",
-    sqliteVersion: "3.45.1",
-    tables: 14,
-    size: "3.2 MB",
-    opened: new Date().toLocaleString(),
-  };
+  if (!activeSource) {
+    return (
+      <div className="w-64 lg:w-72 h-full flex flex-col bg-[#0d0d14] border-l border-white/[0.06]">
+        <Section title="DATABASE">
+          <p className="text-xs text-zinc-600">No database open.</p>
+        </Section>
+        <Section title="MODEL">
+          <p className="text-xs text-zinc-600">No provider selected.</p>
+        </Section>
+      </div>
+    );
+  }
+
+  const openedDate = activeSource.openedAt
+    ? new Date(activeSource.openedAt).toLocaleString()
+    : "—";
 
   return (
     <div className="w-64 lg:w-72 h-full flex flex-col bg-[#0d0d14] border-l border-white/[0.06]">
       {/* Database section */}
-      <Section title="DATABASE">
+      <Section title="DATA SOURCE">
         <div className="flex items-start gap-3 mb-3">
           <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center shrink-0">
             <Database className="w-4 h-4 text-violet-400" />
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-medium text-zinc-200 truncate">{dbInfo.name}</p>
+            <p className="text-sm font-medium text-zinc-200 truncate">
+              {activeSource.fileName}
+            </p>
+            <p className="text-[10px] text-zinc-600 mt-0.5 uppercase tracking-wider">
+              {dataSourceType === "sqlite"
+                ? "SQLite Database"
+                : dataSourceType === "chromadb"
+                ? "ChromaDB Palace"
+                : dataSourceType === "mempalace"
+                ? "MemPalace YAML"
+                : "Unknown"}
+            </p>
           </div>
         </div>
 
         <div className="space-y-2">
-          <DetailRow label="Path" value={dbInfo.path} mono />
-          <DetailRow label="SQLite Version" value={dbInfo.sqliteVersion} />
-          <DetailRow label="Tables" value={String(dbInfo.tables)} />
-          <DetailRow label="Size" value={dbInfo.size} />
-          <DetailRow label="Opened" value={dbInfo.opened} />
+          <DetailRow label="Path" value={activeSource.path} mono />
+          <DetailRow label="Info" value={activeSource.summary || "—"} />
+          <DetailRow label="Opened" value={openedDate} />
         </div>
       </Section>
 
@@ -100,7 +117,7 @@ export function InspectorPanel() {
         </div>
 
         <p className="text-[10px] text-zinc-600 mt-3 leading-relaxed">
-          This query will not modify your database. Results are read-only.
+          All queries are read-only. Your data never leaves your machine.
         </p>
       </Section>
     </div>

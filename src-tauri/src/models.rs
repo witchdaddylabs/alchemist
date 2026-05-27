@@ -170,3 +170,42 @@ pub struct DrawerStructure {
     pub entities: Vec<String>,
     pub drawer_count: Option<usize>,
 }
+
+// ── LLM / Provider types ──
+
+/// A generated query response from an LLM.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GeneratedQuery {
+    pub question: String,
+    pub sql: Option<String>,
+    pub search_terms: Option<Vec<String>>,
+    pub mode: String,
+    pub raw_response: String,
+    pub provider: String,
+    pub model: String,
+    pub elapsed_ms: u64,
+}
+
+/// Health status of a provider.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderHealth {
+    pub provider_type: String,
+    pub reachable: bool,
+    pub model_count: usize,
+    pub models: Vec<String>,
+    pub error: Option<String>,
+}
+
+/// Provider configuration for the frontend.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderConfig {
+    pub provider_type: String,
+    pub ollama_url: String,
+    pub ollama_model: String,
+    pub openai_url: String,
+    pub openai_model: String,
+    pub has_openai_key: bool,
+}

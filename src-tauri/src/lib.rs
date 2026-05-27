@@ -4,6 +4,9 @@ pub mod db;
 pub mod validate;
 pub mod chroma;
 pub mod palace;
+pub mod llm;
+pub mod providers;
+pub mod secret_store;
 pub mod commands;
 
 use commands::app;
@@ -24,6 +27,12 @@ pub fn run() {
             app::search_documents,
             app::get_palace_info,
             app::parse_mempalace,
+            app::check_ollama,
+            app::generate_query,
+            app::get_provider_config,
+            app::store_api_key,
+            app::check_api_key,
+            app::delete_api_key,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

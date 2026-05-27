@@ -7,6 +7,7 @@ pub enum AppError {
     Validation(String),
     NotFound(String),
     Yaml(String),
+    Http(String),
     Internal(String),
 }
 
@@ -18,6 +19,7 @@ impl fmt::Display for AppError {
             AppError::Validation(msg) => write!(f, "Validation error: {}", msg),
             AppError::NotFound(msg) => write!(f, "Not found: {}", msg),
             AppError::Yaml(msg) => write!(f, "YAML error: {}", msg),
+            AppError::Http(msg) => write!(f, "HTTP error: {}", msg),
             AppError::Internal(msg) => write!(f, "Internal error: {}", msg),
         }
     }
@@ -44,6 +46,12 @@ impl From<serde_json::Error> for AppError {
 impl From<serde_yaml::Error> for AppError {
     fn from(e: serde_yaml::Error) -> Self {
         AppError::Yaml(e.to_string())
+    }
+}
+
+impl From<reqwest::Error> for AppError {
+    fn from(e: reqwest::Error) -> Self {
+        AppError::Http(e.to_string())
     }
 }
 

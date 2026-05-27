@@ -1,0 +1,44 @@
+# Sample MemPalace configuration for Alchemist tests
+# Represents a small palace with 2 wings, 3 rooms, and 5 drawers
+
+wings:
+  obsidian_vault:
+    path: /Users/billy/Obsidian Vault
+    rooms:
+      creative:
+        keywords: [writing, fiction, ideas]
+        entities: [Project, Genre]
+        drawers:
+          - name: novel_drafts
+            keywords: [novel, draft, manuscript]
+            descriptions: [Current novel WIP drafts]
+            entities: [Draft]
+          - name: writing_prompts
+            keywords: [prompts, inspiration, warmup]
+            descriptions: [Daily writing prompts and exercises]
+            entities: [Prompt]
+
+      projects:
+        keywords: [sprint, development, roadmap]
+        entities: [Project, Sprint, Milestone]
+        drawers:
+          - name: active_sprints
+            keywords: [active, current, in-progress]
+            descriptions: [Currently active sprint docs]
+            entities: [Sprint]
+          - name: completed
+            keywords: [done, finished, archived]
+            descriptions: [Completed project docs]
+            entities: [Project]
+          - name: references
+            keywords: [docs, specs, inspiration]
+            descriptions: [Reference materials and specs]
+            entities: [Reference]
+
+  hermes:
+    path: /Users/billy/.hermes
+    rooms:
+      skills:
+        keywords: [skills, tools, workflows]
+        entities: [Skill, Workflow]
+        drawer_count: 12

@@ -2,6 +2,8 @@ pub mod errors;
 pub mod models;
 pub mod db;
 pub mod validate;
+pub mod chroma;
+pub mod palace;
 pub mod commands;
 
 use commands::app;
@@ -17,6 +19,11 @@ pub fn run() {
             app::run_query,
             app::validate_sql,
             app::validate_and_run,
+            app::discover_palace,
+            app::list_collections,
+            app::search_documents,
+            app::get_palace_info,
+            app::parse_mempalace,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

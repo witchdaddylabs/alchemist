@@ -32,29 +32,36 @@ jobs:
       - name: Build Tauri app (ad-hoc signed)
         run: npm run tauri build -- --ci
 
-      - name: Create DMG with uninstall-quarantine helper
+      - name: Create DMG with unlock helper
         run: |
-          APP_PATH="src-tauri/target/release/bundle/macos/Alchemist.app"
-          STAGING="$(mktemp -d)"
+          set -e
+          APP_PATH=$(find src-tauri/target/release/bundle/macos -name "*.app" -maxdepth 1 | head -1)
+          if [ -z "$APP_PATH" ]; then
+            echo "ERROR: No .app found"
+            find src-tauri/target/release/bundle -name "*.app" 2>/dev/null
+            exit 1
+          fi
+          APP_NAME=$(basename "$APP_PATH" .app)
+          echo "Found app: $APP_PATH"
           
-          cp -R "$APP_PATH" "$STAGING/Alchemist.app"
+          STAGING="$(mktemp -d)"
+          cp -R "$APP_PATH" "$STAGING/${APP_NAME}.app"
           ln -s /Applications "$STAGING/Applications"
           
-          cat > "$STAGING/🔓 Unlock-Alchemist.command" << 'SCRIPT'
+          SCRIPT_PATH="$STAGING/Unlock-${APP_NAME}.command"
+          cat > "$SCRIPT_PATH" << ENDSCRIPT
           #!/bin/bash
-          xattr -dr com.apple.quarantine /Applications/Alchemist.app 2>/dev/null
-          echo ""
-          echo "✅ Gatekeeper quarantine removed."
-          echo "You can now open Alchemist from Applications."
-          echo ""
-          open -a Alchemist 2>/dev/null
-          SCRIPT
-          chmod +x "$STAGING/🔓 Unlock-Alchemist.command"
+          xattr -dr com.apple.quarantine /Applications/${APP_NAME}.app 2>/dev/null
+          echo "Gatekeeper quarantine removed. You can now open ${APP_NAME} from Applications."
+          open -a "${APP_NAME}" 2>/dev/null
+          ENDSCRIPT
+          chmod +x "$SCRIPT_PATH"
           
-          DMG_PATH="src-tauri/target/release/bundle/dmg/Alchemist_aarch64.dmg"
-          mkdir -p "$(dirname "$DMG_PATH")"
-          hdiutil create -srcfolder "$STAGING" -volname "Alchemist" -fs HFS+ -format UDZO -size 50m "$DMG_PATH"
+          mkdir -p src-tauri/target/release/bundle/dmg
+          DMG_NAME="${APP_NAME}_aarch64.dmg"
+          hdiutil create -srcfolder "$STAGING" -volname "$APP_NAME" -fs HFS+ -format UDZO -size 50m "src-tauri/target/release/bundle/dmg/${DMG_NAME}"
           rm -rf "$STAGING"
+          echo "Created: src-tauri/target/release/bundle/dmg/${DMG_NAME}"
 
       - name: Upload DMG artifact
         uses: actions/upload-artifact@v4
@@ -63,19 +70,19 @@ jobs:
           path: src-tauri/target/release/bundle/dmg/*.dmg
 
       - name: Create Release
-        if: startsWith(github.ref, 'refs/tags/v")
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           draft: false
-          files: src-tauri/target/release/bundle/dmg/*.dmg
           body: |
             ## Installation
 
             1. Open the DMG
-            2. Drag **Alchemist** to **Applications**
-            3. In the DMG, double-click **🔓 Unlock-Alchemist.command**
-            4. Open Alchemist from Applications — no Gatekeeper warnings!
+            2. Drag the app to **Applications**
+            3. In the DMG, double-click **Unlock-Alchemist.command** — removes the Gatekeeper flag
+            4. Open from Applications — no more warnings!
 
-            **Why?** This build uses ad-hoc signing (no Apple Developer account). macOS flags ad-hoc-only apps from the internet. The unlock script removes this flag so it opens normally.
+            **Why?** Ad-hoc signing (no Apple Developer account). The unlock script removes the macOS quarantine flag.
 
             Only install from the official [Witch Daddy Labs](https://github.com/witchdaddylabs/alchemist) release.
+          files: src-tauri/target/release/bundle/dmg/*.dmg

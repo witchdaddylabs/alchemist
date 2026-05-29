@@ -189,7 +189,7 @@ pub fn parse_palace_yaml(path: &str) -> Result<MemPalaceStructure, AppError> {
 }
 
 /// Discover and parse a MemPalace config by searching common locations.
-/// Tries: explicit path → ~/.mempalace/mempalace.yaml → ~/.mempalace/config.yaml
+/// Tries: explicit path → ~/.mempalace/mempalace.yaml → ~/.mempalace/config.yaml → ~/.mempalace/palace/ (ChromaDB)
 pub fn discover_and_parse(path: Option<&str>) -> Result<MemPalaceStructure, AppError> {
     if let Some(p) = path {
         if !p.is_empty() {
@@ -197,20 +197,36 @@ pub fn discover_and_parse(path: Option<&str>) -> Result<MemPalaceStructure, AppE
         }
     }
 
-    // Try default locations
+    // Try YAML config files first
     let home = std::env::var("HOME").unwrap_or_else(|_| "/Users/habibi".to_string());
-    let candidates = vec![
+    let yaml_candidates = vec![
         format!("{}/.mempalace/mempalace.yaml", home),
+        format!("{}/.mempalace/mempalace.yml", home),
         format!("{}/.mempalace/config.yaml", home),
         format!("{}/.mempalace/config.yml", home),
         format!("{}/.mempalace/palace.yaml", home),
         format!("{}/.mempalace/palace.yml", home),
     ];
 
-    for candidate in &candidates {
+    for candidate in &yaml_candidates {
         if Path::new(candidate).exists() {
             return parse_palace_yaml(candidate);
         }
+    }
+
+    // Fall back: try ChromaDB at ~/.mempalace/palace/
+    let chroma_dir = format!("{}/.mempalace/palace", home);
+    let chroma_db = format!("{}/chroma.sqlite3", chroma_dir);
+    if Path::new(&chroma_db).exists() {
+        // MemPalace is stored as a ChromaDB. Return a basic structure
+        // so the frontend can auto-discover and show it as a data source.
+        return Ok(MemPalaceStructure {
+            wings: vec![],
+            total_wings: 0,
+            total_rooms: 0,
+            total_drawers: 0,
+            source_file: chroma_dir,
+        });
     }
 
     Err(AppError::NotFound(

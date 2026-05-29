@@ -29,17 +29,22 @@ function App() {
       // 2. Auto-discover MemPalace (~/.mempalace/)
       try {
         const palace = await parseMempalace();
-        if (palace && palace.wings.length > 0) {
-          const source: RecentSource = {
-            path: "~/.mempalace/",
-            fileName: "MemPalace",
-            type: "mempalace",
-            openedAt: new Date().toISOString(),
-            summary: `${palace.totalWings} wings, ${palace.totalRooms} rooms, ${palace.totalDrawers} drawers`,
-          };
-          setActiveSource(source);
-          addRecentSource(source);
-          setActiveView("workspace");
+        if (palace) {
+          const isChromaDb = palace.wings.length === 0 && palace.source_file.includes(".mempalace");
+          if (palace.wings.length > 0 || isChromaDb) {
+            const source: RecentSource = {
+              path: isChromaDb ? "~/.mempalace/palace/" : "~/.mempalace/",
+              fileName: "MemPalace",
+              type: "mempalace" as const,
+              openedAt: new Date().toISOString(),
+              summary: isChromaDb
+                ? "ChromaDB database"
+                : `${palace.totalWings} wings, ${palace.totalRooms} rooms, ${palace.totalDrawers} drawers`,
+            };
+            setActiveSource(source);
+            addRecentSource(source);
+            setActiveView("workspace");
+          }
         }
       } catch {
         // No MemPalace found — fall through to vault screen

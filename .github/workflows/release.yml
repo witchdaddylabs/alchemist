@@ -33,6 +33,12 @@ jobs:
         env:
           TAURI_SIGNING_IDENTITY: ""
 
+      - name: Ad-hoc sign the DMG
+        run: |
+          DMG_PATH=$(ls src-tauri/target/release/bundle/dmg/*.dmg | head -1)
+          codesign -s - --timestamp=none --preserve-metadata=identifier,entitlements "$DMG_PATH"
+          echo "Signed: $DMG_PATH"
+
       - name: Upload DMG artifact
         uses: actions/upload-artifact@v4
         with:

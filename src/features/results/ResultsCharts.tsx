@@ -72,9 +72,11 @@ function detectCharts(columns: string[], rows: unknown[][]): DetectedChart[] {
         label: `${columns[numericCols[0]]} by ${columns[sc]}`,
       });
     }
+
+    if (charts.length >= 3) return charts.slice(0, 3);
   }
 
-  if (numericCols.length >= 2) {
+  if (numericCols.length >= 2 && charts.length < 3) {
     charts.push({
       type: "line",
       labelCol: numericCols[0],
@@ -83,7 +85,7 @@ function detectCharts(columns: string[], rows: unknown[][]): DetectedChart[] {
     });
   }
 
-  return charts;
+  return charts.slice(0, 3);
 }
 
 const CHART_COLORS = [
@@ -121,7 +123,7 @@ export function ResultsCharts({ columns, rows }: ResultsChartsProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-10 p-2">
       {charts.map((chart, ci) => {
         const chartData = rows.map((r) => ({
           label: String(r[chart.labelCol] ?? ""),
@@ -141,13 +143,13 @@ export function ResultsCharts({ columns, rows }: ResultsChartsProps) {
         return (
           <div
             key={ci}
-            className="rounded-lg border border-white/[0.06] bg-[#0D0B14] p-4"
+            className="rounded-xl border border-white/[0.06] bg-[#0D0B14] p-6"
           >
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2 mb-5">
               {chartTypeIcons[chart.type]}
-              <h4 className="text-xs font-medium text-zinc-300">{chart.label}</h4>
+              <h4 className="text-sm font-medium text-zinc-300">{chart.label}</h4>
             </div>
-            <div className="h-[250px]">
+            <div className="h-[320px]">
               {chart.type === "bar" && (
                 <ChartContainer config={chartConfig}>
                   <BarChart data={chartData}>

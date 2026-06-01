@@ -3,7 +3,6 @@ import {
   Send,
   Sparkles,
   Play,
-  Pencil,
   Bookmark,
   X,
   Check,
@@ -21,10 +20,17 @@ import { cn } from "@/lib/utils";
 
 // ── Export helpers ──
 
-function exportResults(
+function formatFileName(ext: string): string {
+  const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  return `alchemist-results-${ts}.${ext}`;
+}
+
+async function exportResults(
   results: QueryResultData,
   format: "csv" | "markdown" | "json"
 ) {
+  const { saveFile } = await import("@/lib/tauri");
+
   if (format === "json") {
     const json = results.rows.map((row) => {
       const obj: Record<string, unknown> = {};
@@ -33,11 +39,12 @@ function exportResults(
       });
       return obj;
     });
-    downloadFile(
-      JSON.stringify(json, null, 2),
-      "results.json",
-      "application/json"
-    );
+    const content = JSON.stringify(json, null, 2);
+    try {
+      await saveFile(content, formatFileName("json"));
+    } catch (err) {
+      if (String(err) !== "cancelled") console.error("Export failed:", err);
+    }
     return;
   }
 
@@ -54,7 +61,12 @@ function exportResults(
         })
         .join(",")
     );
-    downloadFile([header, ...rows].join("\n"), "results.csv", "text/csv");
+    const content = [header, ...rows].join("\n");
+    try {
+      await saveFile(content, formatFileName("csv"));
+    } catch (err) {
+      if (String(err) !== "cancelled") console.error("Export failed:", err);
+    }
     return;
   }
 
@@ -67,22 +79,13 @@ function exportResults(
           .map((v) => String(v ?? "").replace(/\|/g, "\\|"))
           .join(" | ")} |`
     );
-    downloadFile(
-      [header, separator, ...rows].join("\n"),
-      "results.md",
-      "text/markdown"
-    );
+    const content = [header, separator, ...rows].join("\n");
+    try {
+      await saveFile(content, formatFileName("md"));
+    } catch (err) {
+      if (String(err) !== "cancelled") console.error("Export failed:", err);
+    }
   }
-}
-
-function downloadFile(content: string, filename: string, mime: string) {
-  const blob = new Blob([content], { type: mime });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
 }
 
 // ── Component ──
@@ -93,7 +96,6 @@ export function ChatPanel() {
   const currentResults = useAppStore((s) => s.currentResults);
   const setCurrentResults = useAppStore((s) => s.setCurrentResults);
   const activeSource = useAppStore((s) => s.activeSource);
-  const dataSourceType = useAppStore((s) => s.dataSourceType);
   const generatedSql = useAppStore((s) => s.generatedSql);
   const setGeneratedSql = useAppStore((s) => s.setGeneratedSql);
 
@@ -155,11 +157,23 @@ export function ChatPanel() {
     setIsGenerating(true);
 
     try {
-      const { generateQuery } = await import("@/lib/tauri");
+      const { generateQuery, getSchema } = await import("@/lib/tauri");
       const activeProvider = useAppStore.getState().activeProvider;
+      const activeSource = useAppStore.getState().activeSource;
+
+      let schemaJson: string | undefined = undefined;
+      if (activeSource && useAppStore.getState().dataSourceType === "sqlite") {
+        try {
+          const schema = await getSchema(activeSource.path);
+          schemaJson = JSON.stringify(schema);
+        } catch {
+          // Schema fetch failed, proceed without it
+        }
+      }
 
       const result = await generateQuery({
         question,
+        schemaJson,
         providerType: activeProvider.type,
         providerUrl: activeProvider.url,
         providerModel: activeProvider.model,
@@ -203,13 +217,14 @@ export function ChatPanel() {
   };
 
   const runVectorSearch = async (terms: string[]) => {
-    if (!activeSource) return;
+    const src = useAppStore.getState().activeSource;
+    if (!src) return;
     setIsRunning(true);
 
     try {
       const { searchDocuments } = await import("@/lib/tauri");
       const results = await searchDocuments(
-        activeSource.path,
+        src.path,
         terms.join(" "),
         undefined,
         20
@@ -256,17 +271,22 @@ export function ChatPanel() {
   };
 
   const handleRunQuery = async () => {
-    if (!generatedSql || !activeSource) return;
+    // Always read fresh state at call time to avoid stale closures
+    const src = useAppStore.getState().activeSource;
+    const dsType = useAppStore.getState().dataSourceType;
+    const sql = generatedSql;
+    if (!sql || !src) return;
     setShowPreview(false);
+    setExecutionError(null);
 
-    if (dataSourceType === "chromadb" || dataSourceType === "mempalace") {
+    if (dsType === "chromadb" || dsType === "mempalace") {
       // For vector sources, run as search
       setIsRunning(true);
       try {
         const { searchDocuments } = await import("@/lib/tauri");
         const results = await searchDocuments(
-          activeSource.path,
-          generatedSql,
+          src.path,
+          sql,
           undefined,
           20
         );
@@ -295,10 +315,12 @@ export function ChatPanel() {
 
     // SQL mode — run real query
     setIsRunning(true);
+    setExecutionError(null);
+    setCurrentResults(null);
 
     try {
       const { runQuery } = await import("@/lib/tauri");
-      const results = await runQuery(activeSource.path, generatedSql);
+      const results = await runQuery(src.path, sql);
 
       const queryResult: QueryResultData = {
         columns: results.columns,
@@ -460,13 +482,6 @@ export function ChatPanel() {
               </Button>
               <Button
                 variant="outline"
-                className="h-9 px-4 rounded-lg text-xs font-medium border-white/[0.1] text-zinc-300 hover:text-zinc-100 hover:bg-white/[0.06]"
-              >
-                <Pencil className="w-3.5 h-3.5 mr-1.5" />
-                Edit SQL
-              </Button>
-              <Button
-                variant="outline"
                 onClick={() => setShowSaveSpell(true)}
                 className="h-9 px-4 rounded-lg text-xs font-medium border-white/[0.1] text-zinc-300 hover:text-zinc-100 hover:bg-white/[0.06]"
               >
@@ -565,9 +580,6 @@ export function ChatPanel() {
           onClose={() => setShowPreview(false)}
           onRun={() => {
             handleRunQuery();
-          }}
-          onEdit={() => {
-            setShowPreview(false);
           }}
         />
       )}

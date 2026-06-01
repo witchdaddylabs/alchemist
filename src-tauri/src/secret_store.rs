@@ -1,15 +1,42 @@
+use std::collections::HashMap;
+use std::fs;
+use std::path::PathBuf;
 use std::process::Command;
 
-/// macOS Keychain integration for API keys.
-/// Uses the `security` CLI tool to store/retrieve API keys in the system keychain.
+/// macOS Keychain integration for API keys with local fallback.
+/// Uses the `security` CLI tool (errors ignored to avoid prompts) + ~/.alchemist/secrets.json
+/// so keys survive without triggering keychain prompts.
 
 const KEYCHAIN_SERVICE: &str = "alchemist";
 
-/// Store an API key in the macOS Keychain.
-/// Uses the generic-password type with the service name "alchemist" and
-/// an account name matching the provider key.
+fn secrets_path() -> PathBuf {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+    PathBuf::from(home).join(".alchemist").join("secrets.json")
+}
+
+fn load_secrets() -> HashMap<String, String> {
+    let path = secrets_path();
+    if !path.exists() {
+        return HashMap::new();
+    }
+    let content = fs::read_to_string(&path).unwrap_or_default();
+    serde_json::from_str(&content).unwrap_or_default()
+}
+
+fn save_secrets(secrets: &HashMap<String, String>) -> Result<(), String> {
+    if let Some(dir) = secrets_path().parent() {
+        fs::create_dir_all(dir).map_err(|e| format!("Failed to create data dir: {}", e))?;
+    }
+    let content = serde_json::to_string_pretty(secrets)
+        .map_err(|e| format!("Failed to serialize secrets: {}", e))?;
+    fs::write(secrets_path(), content).map_err(|e| format!("Failed to save secrets: {}", e))
+}
+
+/// Store an API key.
+/// Tries keychain (silently ignores errors) and always writes to local ~/.alchemist/secrets.json using account as key.
 pub fn store_key(account: &str, password: &str) -> Result<(), String> {
-    let output = Command::new("security")
+    // Keychain attempt - ignore errors completely to prevent prompts/popups
+    let _ = Command::new("security")
         .args([
             "add-generic-password",
             "-s",
@@ -18,55 +45,52 @@ pub fn store_key(account: &str, password: &str) -> Result<(), String> {
             account,
             "-w",
             password,
-            "-U", // Update existing if present
+            "-U",
         ])
-        .output()
-        .map_err(|e| format!("Failed to run security CLI: {}", e))?;
+        .output();
 
-    if output.status.success() {
-        Ok(())
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        Err(format!("Keychain error: {}", stderr.trim()))
-    }
+    // Always write to local fallback file
+    let mut secrets = load_secrets();
+    secrets.insert(account.to_string(), password.to_string());
+    save_secrets(&secrets)
 }
 
-/// Retrieve an API key from the macOS Keychain.
+/// Retrieve an API key.
+/// First tries keychain, falls back to local ~/.alchemist/secrets.json
 pub fn get_key(account: &str) -> Result<String, String> {
-    let output = Command::new("security")
+    // Try keychain first (non-panicking)
+    if let Ok(output) = Command::new("security")
         .args([
             "find-generic-password",
             "-s",
             KEYCHAIN_SERVICE,
             "-a",
             account,
-            "-w", // Output only the password
+            "-w",
         ])
         .output()
-        .map_err(|e| format!("Failed to run security CLI: {}", e))?;
+    {
+        if output.status.success() {
+            let password = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !password.is_empty() {
+                return Ok(password);
+            }
+        }
+    }
 
-    if output.status.success() {
-        let password = String::from_utf8_lossy(&output.stdout)
-            .trim()
-            .to_string();
-        if password.is_empty() {
-            Err(format!("No key found for '{}'", account))
-        } else {
-            Ok(password)
-        }
+    // Fallback to local file
+    let secrets = load_secrets();
+    if let Some(key) = secrets.get(account) {
+        Ok(key.clone())
     } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        if stderr.contains("could not be found") || stderr.contains("not found") {
-            Err(format!("No key stored for '{}'", account))
-        } else {
-            Err(format!("Keychain error: {}", stderr.trim()))
-        }
+        Err(format!("No key stored for '{}'", account))
     }
 }
 
-/// Delete an API key from the macOS Keychain.
+/// Delete an API key from both keychain (best effort) and local secrets file.
 pub fn delete_key(account: &str) -> Result<(), String> {
-    let output = Command::new("security")
+    // Keychain delete - ignore errors
+    let _ = Command::new("security")
         .args([
             "delete-generic-password",
             "-s",
@@ -74,18 +98,17 @@ pub fn delete_key(account: &str) -> Result<(), String> {
             "-a",
             account,
         ])
-        .output()
-        .map_err(|e| format!("Failed to run security CLI: {}", e))?;
+        .output();
 
-    if output.status.success() {
-        Ok(())
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        Err(format!("Keychain delete error: {}", stderr.trim()))
+    // Remove from local file
+    let mut secrets = load_secrets();
+    if secrets.remove(account).is_some() {
+        save_secrets(&secrets)?;
     }
+    Ok(())
 }
 
-/// Check if a key exists in the keychain.
+/// Check if a key exists (keychain or local fallback).
 pub fn has_key(account: &str) -> bool {
     get_key(account).is_ok()
 }

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { SchemaPanel } from "@/features/workspace/SchemaPanel";
 import { ChatPanel } from "@/features/workspace/ChatPanel";
 import { InspectorPanel } from "@/features/workspace/InspectorPanel";
+import { ProviderSelector } from "@/components/workspace/ProviderSelector";
 import { useAppStore } from "@/state/app-store";
 import { getSchema, listCollections, parseMempalace } from "@/lib/tauri";
 import type { TableSchema, CollectionInfo, MemPalaceStructure } from "@/lib/tauri";
@@ -63,15 +64,26 @@ export function Workspace() {
   }
 
   return (
-    <div className="flex-1 flex h-full overflow-hidden">
-      {/* Left: Schema panel */}
-      <SchemaPanel tables={tables} collections={collections} palace={palace ?? undefined} />
+    <div className="flex-1 flex flex-col h-full overflow-hidden">
+      {/* Top toolbar */}
+      <div className="h-10 flex items-center justify-between px-4 bg-[#0b0b10] border-b border-white/[0.06] shrink-0">
+        <span className="text-xs text-zinc-500 font-medium">Workspace</span>
+        <div className="flex items-center gap-3">
+          <ProviderSelector />
+        </div>
+      </div>
 
-      {/* Center: Chat */}
-      <ChatPanel />
+      {/* Main three-column layout */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left: Schema panel */}
+        <SchemaPanel tables={tables} collections={collections} palace={palace ?? undefined} />
 
-      {/* Right: Inspector */}
-      <InspectorPanel />
+        {/* Center: Chat */}
+        <ChatPanel />
+
+        {/* Right: Inspector */}
+        <InspectorPanel />
+      </div>
     </div>
   );
 }

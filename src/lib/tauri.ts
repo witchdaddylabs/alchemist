@@ -142,7 +142,11 @@ export async function loadConfig() {
   return invoke<string>("load_config");
 }
 
-// ── Types ──
+// ── Export commands ──
+
+export async function saveFile(content: string, suggestedName: string) {
+  return invoke<string>("save_file_dialog", { content, suggestedName });
+}
 
 export interface VaultSummary {
   path: string;

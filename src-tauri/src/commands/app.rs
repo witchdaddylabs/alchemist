@@ -116,12 +116,18 @@ pub async fn check_provider(
 ) -> Result<ProviderHealth, String> {
     match provider_type.as_str() {
         "openai" | "deepseek" => {
-            let key = api_key.unwrap_or_default();
+            let key = api_key
+                .filter(|k| !k.is_empty())
+                .or_else(|| crate::secret_store::get_key(&format!("{}_api_key", provider_type)).ok())
+                .unwrap_or_default();
             let client = OpenAIClient::new(&url, &model, &key);
             client.check_health().await
         }
         "google-ai" => {
-            let key = api_key.unwrap_or_default();
+            let key = api_key
+                .filter(|k| !k.is_empty())
+                .or_else(|| crate::secret_store::get_key("google_ai_api_key").ok())
+                .unwrap_or_default();
             let client = GeminiClient::new(&url, &model, &key);
             client.check_health().await
         }
@@ -216,7 +222,7 @@ pub async fn generate_query(
             // SQL mode
             if let Some(json) = schema_json {
                 if let Ok(tables) = serde_json::from_str::<Vec<TableSchema>>(&json) {
-                    llm::build_sql_prompt(&question, &tables, 20)
+                    llm::build_sql_prompt(&question, &tables, tables.len())
                 } else {
                     format!(
                         "Write a read-only SQLite SELECT query for: {}",
@@ -355,4 +361,36 @@ pub fn load_config() -> Result<String, String> {
         return Ok("{}".to_string());
     }
     std::fs::read_to_string(&path).map_err(|e| format!("Failed to load config: {}", e))
+}
+
+/// Save content to a file using a native save dialog.
+#[tauri::command]
+pub async fn save_file_dialog(
+    app: tauri::AppHandle,
+    content: String,
+    suggested_name: String,
+) -> Result<String, String> {
+    use tauri_plugin_dialog::DialogExt;
+
+    // blocking_save_file must NOT run on the main thread
+    let save_path = tokio::task::spawn_blocking(move || {
+        app.dialog()
+            .file()
+            .set_file_name(&suggested_name)
+            .set_title("Export Results")
+            .blocking_save_file()
+    })
+    .await
+    .map_err(|e| format!("Dialog task failed: {}", e))?;
+
+    match save_path {
+        Some(path) => {
+            let p = path.to_string();
+            tokio::fs::write(&p, content)
+                .await
+                .map_err(|e| format!("Failed to write file: {}", e))?;
+            Ok(p)
+        }
+        None => Err("cancelled".to_string()),
+    }
 }

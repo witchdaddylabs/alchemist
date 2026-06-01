@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
-import { Database, Shield, WifiOff, UserX, FileWarning } from "lucide-react";
+import { Database, Shield, WifiOff, UserX, FileWarning, Ghost } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { VaultCard } from "@/components/vault/VaultCard";
@@ -60,6 +60,21 @@ export function VaultScreen() {
       }
 
       await openDataSource(selected as string);
+    } catch (err) {
+      setOpenError(String(err));
+    }
+
+    setIsOpening(false);
+  }, []);
+
+  const handleLoadMemPalace = useCallback(async () => {
+    setIsOpening(true);
+    setOpenError(null);
+
+    const mempalacePath = "/Users/habibi/.mempalace/palace/chroma.sqlite3";
+
+    try {
+      await openDataSource(mempalacePath);
     } catch (err) {
       setOpenError(String(err));
     }
@@ -237,9 +252,27 @@ export function VaultScreen() {
             {isOpening ? "Opening..." : "Open Database..."}
           </Button>
 
+          {/* MemPalace Button */}
+          <Button
+            onClick={handleLoadMemPalace}
+            disabled={isOpening}
+            className={cn(
+              "h-11 px-8 rounded-xl text-sm font-medium mt-3",
+              "bg-gradient-to-b from-emerald-500/80 to-emerald-700/80",
+              "hover:from-emerald-400/90 hover:to-emerald-600/90",
+              "shadow-[0_0_20px_rgba(16,185,129,0.15)] hover:shadow-[0_0_30px_rgba(16,185,129,0.3)]",
+              "text-emerald-100 border border-emerald-400/20",
+              "transition-all duration-200",
+              isOpening && "opacity-70 animate-pulse"
+            )}
+          >
+            <Ghost className="w-4 h-4 mr-2" />
+            {isOpening ? "Summoning..." : "Load MemPalace"}
+          </Button>
+
           {/* Drop hint */}
           <p className="text-xs text-zinc-500 mt-3 mb-8">
-            or drag and drop a .db / .sqlite / .yaml file
+            or drag and drop a .db / .sqlite / .yaml file — or click Load MemPalace to query your vault
           </p>
 
           {/* Error message */}

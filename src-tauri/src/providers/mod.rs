@@ -66,14 +66,6 @@ struct ChatMessage {
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
-struct ChatRequest {
-    model: String,
-    messages: Vec<ChatMessage>,
-    temperature: f64,
-    max_tokens: i64,
-}
-
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
 struct ChatChoice {
     message: ChatMessage,
 }
@@ -248,21 +240,14 @@ impl OpenAIClient {
 
     pub async fn generate(&self, prompt: &str) -> Result<String, String> {
         let url = format!("{}/chat/completions", self.base_url);
-        let body = ChatRequest {
-            model: self.model.clone(),
-            messages: vec![
-                ChatMessage {
-                    role: "system".to_string(),
-                    content: "You are a data query expert. Generate only the requested query. Be concise.".to_string(),
-                },
-                ChatMessage {
-                    role: "user".to_string(),
-                    content: prompt.to_string(),
-                },
+        let body = serde_json::json!({
+            "model": self.model,
+            "messages": [
+                { "role": "system", "content": "You are a data query expert. Generate only the requested query. Be concise." },
+                { "role": "user", "content": prompt }
             ],
-            temperature: 0.1,
-            max_tokens: 2048,
-        };
+            "max_completion_tokens": 2048
+        });
 
         let resp = self
             .client

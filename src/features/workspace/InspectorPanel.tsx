@@ -15,6 +15,7 @@ const safetyChecks = [
 export function InspectorPanel() {
   const activeSource = useAppStore((s) => s.activeSource);
   const dataSourceType = useAppStore((s) => s.dataSourceType);
+  const activeProvider = useAppStore((s) => s.activeProvider);
   const [palace, setPalace] = useState<MemPalaceStructure | null>(null);
 
   useEffect(() => {
@@ -116,13 +117,23 @@ export function InspectorPanel() {
             <Cpu className="w-3.5 h-3.5 text-zinc-600" />
             <span className="text-xs text-zinc-500">Provider</span>
           </div>
-          <p className="text-sm text-zinc-200 ml-5.5">Ollama (Local)</p>
+          <p className="text-sm text-zinc-200 ml-5.5">
+            {activeProvider.type === "ollama"
+              ? "Ollama (Local)"
+              : activeProvider.type === "openai"
+              ? "OpenAI"
+              : activeProvider.type === "deepseek"
+              ? "DeepSeek"
+              : activeProvider.type === "google-ai"
+              ? "Google AI Studio"
+              : activeProvider.type}
+          </p>
 
           <div className="flex items-center gap-2 mt-2">
             <Cpu className="w-3.5 h-3.5 text-zinc-600" />
             <span className="text-xs text-zinc-500">Model</span>
           </div>
-          <p className="text-sm text-zinc-200 ml-5.5">llama3.2:latest</p>
+          <p className="text-sm text-zinc-200 ml-5.5">{activeProvider.model}</p>
 
           <div className="flex items-center gap-2 mt-2">
             <div className="w-3.5 h-3.5 flex items-center justify-center">

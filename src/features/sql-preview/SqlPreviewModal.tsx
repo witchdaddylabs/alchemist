@@ -7,7 +7,6 @@ interface SqlPreviewModalProps {
   sql: string;
   onClose: () => void;
   onRun: () => void;
-  onEdit: () => void;
 }
 
 const safetyChecks = [
@@ -18,7 +17,7 @@ const safetyChecks = [
   { code: "limit", label: "Limit clause detected (100)", passed: true },
 ];
 
-export function SqlPreviewModal({ sql, onClose, onRun, onEdit }: SqlPreviewModalProps) {
+export function SqlPreviewModal({ sql, onClose, onRun }: SqlPreviewModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
       <div className="w-full max-w-2xl mx-4 rounded-2xl border border-white/[0.1] bg-[#0d0d14] shadow-2xl shadow-black/50 overflow-hidden">
@@ -87,13 +86,6 @@ export function SqlPreviewModal({ sql, onClose, onRun, onEdit }: SqlPreviewModal
             className="h-9 px-4 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.06]"
           >
             Cancel
-          </Button>
-          <Button
-            variant="ghost"
-            onClick={onEdit}
-            className="h-9 px-4 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.06]"
-          >
-            Edit SQL
           </Button>
           <Button
             onClick={onRun}

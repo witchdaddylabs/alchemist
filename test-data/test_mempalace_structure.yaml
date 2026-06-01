@@ -1,0 +1,96 @@
+# MemPalace Structure — Witch Daddy Labs Test Vault
+# Created for Alchemist testing (non-SQLite source)
+# Theme: Eternal Flame Syndicate + Shadow Networks
+
+wings:
+  - name: "The Obsidian Spire"
+    description: "Core leadership and high-value pacts"
+    rooms:
+      - name: "Eternal Flame Council Chamber"
+        drawers:
+          - name: "Active Pacts Ledger"
+            keywords: ["pact", "contract", "soulmarks", "Eternal Flame", "Nyx Veil"]
+            metadata:
+              type: "ledger"
+              sensitivity: "high"
+              last_updated: "2024-06-21"
+          - name: "Breached Agreements Archive"
+            keywords: ["breach", "penalty", "Voidwalker", "Crown of Whispers"]
+            metadata:
+              type: "archive"
+              sensitivity: "critical"
+              last_updated: "2023-08-08"
+
+      - name: "Elara Voss Private Study"
+        drawers:
+          - name: "Personal Service Contracts"
+            keywords: ["Elara Voss", "45,000 soulmarks", "quarterly draw", "solstice bonus"]
+            metadata:
+              type: "contract"
+              owner: "Elara Voss"
+              sensitivity: "medium"
+
+  - name: "Veil Markets"
+    description: "Procurement, ingredients, and shadow trade"
+    rooms:
+      - name: "Dragon's Blood Exchange"
+        drawers:
+          - name: "Rare Ingredient Manifests"
+            keywords: ["Dragon's Blood Resin", "Moonstone Dust", "Phoenix Feather Ash", "Void Essence"]
+            metadata:
+              type: "inventory"
+              last_audit: "2024-05-22"
+          - name: "Supplier Blacklist"
+            keywords: ["Nyx Veil Holdings", "Obsidian Imports", "Lunar Collective"]
+            metadata:
+              type: "intelligence"
+              sensitivity: "high"
+
+      - name: "Wraith Silk Auction House"
+        drawers:
+          - name: "Current Bids & Settlements"
+            keywords: ["Wraith Silk", "Emberheart Brew", "Shadowveil Tonic"]
+            metadata:
+              type: "trade"
+              currency: "Bloodnotes"
+
+  - name: "Chronos Archive"
+    description: "Time-sensitive and artifact-related knowledge"
+    rooms:
+      - name: "Artifact Provenance Wing"
+        drawers:
+          - name: "The Obsidian Heart Dossier"
+            keywords: ["Obsidian Heart", "pulse", "breach pacts", "solstice"]
+            metadata:
+              type: "artifact"
+              power_level: 95
+              current_holder: "Eternal Flame Syndicate"
+          - name: "Chronos Shard Experiments"
+            keywords: ["Chronos Shard", "time perception", "future conversations", "Voidwalker Collective"]
+            metadata:
+              type: "experiment"
+              power_level: 99
+              status: "active"
+
+      - name: "New Moon Ritual Logs"
+        drawers:
+          - name: "Moonlit Elixir Field Notes"
+            keywords: ["Moonlit Elixir", "starlight dew", "blackthorn trees", "Elara Voss"]
+            metadata:
+              type: "ritual"
+              date: "2024-05-10"
+              power: "high"
+
+  - name: "Syndicate Intelligence"
+    description: "Hidden relationships and risk assessment"
+    rooms:
+      - name: "Pact Risk Assessment"
+        drawers:
+          - name: "Breach Risk Matrix"
+            keywords: ["breach_risk", "low", "medium", "high", "Elara Voss", "Morgana Whisper"]
+            metadata:
+              type: "analysis"
+              last_reviewed: "2024-06-12"
+
+# End of test MemPalace structure
+# Compatible with Alchemist YAML parser (wing → room → drawer hierarchy)

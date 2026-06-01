@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import {
   Search,
   Plus,
@@ -26,15 +26,23 @@ export function SpellsScreen() {
   const setGeneratedSql = useAppStore((s) => s.setGeneratedSql);
   const setCurrentQuery = useAppStore((s) => s.setCurrentQuery);
 
-  // Load spells from disk on mount
+  // Load spells from disk on mount (only once, with dedup)
+  const hasLoadedRef = useRef(false);
   useEffect(() => {
+    if (hasLoadedRef.current) return;
+    hasLoadedRef.current = true;
+
     const init = async () => {
       try {
         const json = await loadSpells();
         const loaded: Spell[] = JSON.parse(json);
         const addSpell = useAppStore.getState().addSpell;
+        const currentSpells = useAppStore.getState().spells;
+        const existingIds = new Set(currentSpells.map((s) => s.id));
         for (const spell of loaded) {
-          addSpell(spell);
+          if (!existingIds.has(spell.id)) {
+            addSpell(spell);
+          }
         }
       } catch {
         // No saved spells — that's fine
@@ -43,9 +51,14 @@ export function SpellsScreen() {
     init();
   }, []);
 
-  // Save spells to disk whenever they change
+  // Save spells to disk whenever they change (after initial load)
+  const hasLoadedRef2 = useRef(false);
   useEffect(() => {
-    if (spells.length === 0) return; // Don't save empty on initial load
+    if (!hasLoadedRef2.current) {
+      hasLoadedRef2.current = true;
+      return;
+    }
+    if (spells.length === 0) return;
     const json = JSON.stringify(spells);
     saveSpells(json).catch(() => {});
   }, [spells]);

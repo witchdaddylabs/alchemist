@@ -40,6 +40,7 @@ pub fn run() {
             app::load_spells,
             app::save_config,
             app::load_config,
+            app::save_file_dialog,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

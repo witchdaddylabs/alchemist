@@ -7,27 +7,49 @@ use crate::models::{MemPalaceStructure, TableSchema};
 pub fn build_sql_prompt(
     question: &str,
     schema_context: &[TableSchema],
-    max_tables: usize,
+    _max_tables: usize,
 ) -> String {
-    let schema_preview = format_schema_context(schema_context, max_tables);
+    let schema_compact = format_schema_compact(schema_context);
+    let table_names: Vec<&str> = schema_context.iter().map(|t| t.name.as_str()).collect();
+    let table_list = table_names.join(", ");
 
     format!(
-        r#"You are an SQLite expert. Given the following database schema, write a **read-only SELECT query** that answers the user's question.
+        r#"You are an SQLite expert assistant. Write a read-only SELECT query that answers the user's question.
 
-Rules:
-1. RETURN ONLY the SQL query — no explanations, no markdown formatting, no extra text.
-2. USE single SELECT statements only (no UNION, no subqueries unless necessary).
-3. ALWAYS add LIMIT 100 at the end.
-4. NEVER use PRAGMA, ATTACH, DETACH, REINDEX, SAVEPOINT, RELEASE, INSERT, UPDATE, DELETE, DROP, CREATE, ALTER.
-5. Use table names exactly as shown (they may be quoted).
-6. Use column names exactly as shown.
+=== CRITICAL RULES — YOU MUST FOLLOW THESE (VIOLATION = FAILURE) ===
+1. Use ONLY the exact table names and column names listed in the DATABASE SCHEMA below.
+2. NEVER output placeholders like [Table Name], [Column Name], <table_name>, Table Name, etc.
+3. The schema below is the COMPLETE list of tables and columns. If a table or column is not listed, it does not exist.
+4. Return ONLY the raw SQL query. No explanations, no markdown, no backticks, no code fences.
+5. Always end with LIMIT 100.
+6. Never use any DML or DDL keywords.
 
-Schema:
+=== AVAILABLE TABLES (use only these) ===
 {}
 
-User question: {}
-SQL: "#,
-        schema_preview, question
+=== DATABASE SCHEMA (use only these exact names) ===
+{}
+
+=== EXAMPLES OF CORRECT vs INCORRECT === 
+
+Example 1:
+Question: Find all documents containing "graham miller"
+Tables: embeddings, embedding_metadata, documents, collections
+Correct: SELECT e.id, e.document_id, d.content FROM embeddings e JOIN documents d ON e.document_id = d.id WHERE d.content LIKE '%graham miller%' LIMIT 100;
+Wrong: SELECT * FROM [Table Name] WHERE [Column Name] = 'graham miller';
+
+Example 2:
+Question: List all collections and their document counts
+Tables: collections, documents, embeddings
+Correct: SELECT c.name, COUNT(d.id) AS doc_count FROM collections c LEFT JOIN documents d ON c.id = d.collection_id GROUP BY c.name LIMIT 100;
+Wrong: SELECT name, COUNT(*) FROM [<table_name>] GROUP BY name;
+
+=== TASK ===
+User question (use ONLY the tables and columns listed above):
+{}
+
+Your SQL query: "#,
+        table_list, schema_compact, question
     )
 }
 
@@ -107,12 +129,13 @@ User question: {}
 }
 
 /// Parse SQL from an LLM response — extracts ```sql blocks or plain text.
+/// Returns None if the response contains placeholder patterns (e.g. [Table Name]).
 pub fn parse_sql_from_response(response: &str) -> Option<String> {
     // Try ```sql ... ``` block first
     let sql_block_re = Regex::new(r"(?s)```sql\s*\n?(.*?)```").ok()?;
     if let Some(caps) = sql_block_re.captures(response) {
         let sql = caps.get(1).unwrap().as_str().trim().to_string();
-        if !sql.is_empty() {
+        if !sql.is_empty() && !contains_placeholder(&sql) {
             return Some(sql);
         }
     }
@@ -121,18 +144,44 @@ pub fn parse_sql_from_response(response: &str) -> Option<String> {
     let code_block_re = Regex::new(r"(?s)```\s*\n?(.*?)```").ok()?;
     if let Some(caps) = code_block_re.captures(response) {
         let sql = caps.get(1).unwrap().as_str().trim().to_string();
-        if !sql.is_empty() {
+        if !sql.is_empty() && !contains_placeholder(&sql) {
             return Some(sql);
         }
     }
 
-    // Fallback: return the entire response, trimmed
+    // Fallback: return the entire response, trimmed — but strip backticks if present
     let trimmed = response.trim();
-    if !trimmed.is_empty() {
-        Some(trimmed.to_string())
+    let cleaned = trimmed
+        .trim_start_matches('`')
+        .trim_end_matches('`')
+        .trim();
+    if !cleaned.is_empty() && !contains_placeholder(cleaned) {
+        Some(cleaned.to_string())
     } else {
         None
     }
+}
+
+/// Check if SQL contains placeholder patterns that indicate a bad response.
+fn contains_placeholder(sql: &str) -> bool {
+    // Common placeholder patterns
+    if sql.contains("[Table Name]") || sql.contains("[Column Name]") {
+        return true;
+    }
+    if sql.contains("<table_name>") || sql.contains("<column_name>") {
+        return true;
+    }
+    if sql.contains("<table>") || sql.contains("<column>") {
+        return true;
+    }
+    // Generic bracketed placeholders like [Some Name]
+    let placeholder_re = Regex::new(r"\[[A-Z][a-z]+ [A-Z][a-z]+\]").ok();
+    if let Some(re) = placeholder_re {
+        if re.is_match(sql) {
+            return true;
+        }
+    }
+    false
 }
 
 /// Parse search terms from a vector search response.
@@ -196,37 +245,15 @@ pub fn detect_mode(question: &str) -> &'static str {
 
 // ── Internal helpers ──
 
-fn format_schema_context(tables: &[TableSchema], max: usize) -> String {
+/// Format schema as a compact table→columns mapping.
+/// Does NOT include row counts or type details to keep the prompt focused and small.
+fn format_schema_compact(tables: &[TableSchema]) -> String {
     tables
         .iter()
-        .take(max)
         .map(|t| {
-            let cols_str: String = t
-                .columns
-                .iter()
-                .map(|c| {
-                    let pk = if c.is_primary_key { " PK" } else { "" };
-                    let fk = c
-                        .foreign_key_target
-                        .as_ref()
-                        .map(|t| format!(" FK→{}", t))
-                        .unwrap_or_default();
-                    let nullable = if c.nullable { "" } else { " NOT NULL" };
-                    format!(
-                        "    {c_name}: {c_type}{pk}{fk}{nullable}",
-                        c_name = c.name,
-                        c_type = c.declared_type
-                    )
-                })
-                .collect::<Vec<_>>()
-                .join("\n");
-
-            let row_hint = t
-                .row_count
-                .map(|c| format!(" ({c} rows)"))
-                .unwrap_or_default();
-            format!("TABLE {name}{row_hint}:\n{cols_str}", name = t.name)
+            let cols: Vec<&str> = t.columns.iter().map(|c| c.name.as_str()).collect();
+            format!("  {}: {}", t.name, cols.join(", "))
         })
         .collect::<Vec<_>>()
-        .join("\n\n")
+        .join("\n")
 }

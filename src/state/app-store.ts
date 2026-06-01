@@ -80,6 +80,12 @@ export interface AppState {
   dataSourceType: DataSourceType;
   setActiveSource: (source: RecentSource | null) => void;
 
+  // Provider
+  activeProvider: ProviderConfigState;
+  setActiveProvider: (config: ProviderConfigState) => void;
+  savedProviders: Record<string, ProviderConfigState>;
+  setSavedProviders: (providers: Record<string, ProviderConfigState>) => void;
+
   // Recent sources
   recentSources: RecentSource[];
   addRecentSource: (source: RecentSource) => void;
@@ -112,8 +118,6 @@ export interface AppState {
 
   // Settings
   settings: SettingsState;
-  activeProvider: ProviderConfigState;
-  setActiveProvider: (config: ProviderConfigState) => void;
 }
 
 const defaultSettings: SettingsState = {
@@ -140,6 +144,12 @@ export const useAppStore = create<AppState>((set) => ({
       dataSourceType: source?.type ?? null,
     });
   },
+
+  // Provider
+  activeProvider: { type: "ollama", url: "http://localhost:11434", model: "llama3.2" },
+  setActiveProvider: (config: ProviderConfigState) => set({ activeProvider: config }),
+  savedProviders: {} as Record<string, ProviderConfigState>,
+  setSavedProviders: (providers) => set({ savedProviders: providers }),
 
   // Recent sources
   recentSources: [],
@@ -180,9 +190,10 @@ export const useAppStore = create<AppState>((set) => ({
   // Spells
   spells: [],
   addSpell: (spell) =>
-    set((state) => ({
-      spells: [spell, ...state.spells],
-    })),
+    set((state) => {
+      if (state.spells.some((s) => s.id === spell.id)) return state;
+      return { spells: [spell, ...state.spells] };
+    }),
   updateSpell: (id, updates) =>
     set((state) => ({
       spells: state.spells.map((s) =>
@@ -210,6 +221,4 @@ export const useAppStore = create<AppState>((set) => ({
         settings: { ...state.settings, privacyMode: v },
       })),
   },
-  activeProvider: { type: "ollama", url: "http://localhost:11434", model: "llama3.2" },
-  setActiveProvider: (config) => set({ activeProvider: config }),
 }));

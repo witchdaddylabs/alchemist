@@ -42,6 +42,7 @@ interface ProviderState {
   url: string;
   hasKey?: boolean;
   lastChecked: string | null;
+  error?: string | null;
 }
 
 const initialProviders: ProviderState[] = [
@@ -250,7 +251,8 @@ export function SettingsScreen() {
       if (!provider) return;
 
       const key = apiKeys[id]?.key || undefined;
-      const health = await checkProvider(id, provider.url, provider.model, key);
+      const safeKey = key && key !== "••••••••" ? key : undefined;
+      const health = await checkProvider(id, provider.url, provider.model, safeKey);
 
       setProviders((prev) =>
         prev.map((p) =>
@@ -259,6 +261,7 @@ export function SettingsScreen() {
                 ...p,
                 status: health.reachable ? ("connected" as ProviderStatus) : ("error" as ProviderStatus),
                 lastChecked: "Just now",
+                error: health.error || null,
               }
             : p
         )
@@ -400,22 +403,23 @@ export function SettingsScreen() {
     return <span className={cn("w-2 h-2 rounded-full", colors[status])} />;
   };
 
-  const statusLabel = (status: ProviderStatus) => {
-    const labels = {
+  const statusLabel = (p: ProviderState) => {
+    const labels: Record<ProviderStatus, string> = {
       connected: "Connected",
       disconnected: "Not configured",
-      error: "Error",
+      error: p.error || "Error",
       unknown: "Unknown",
     };
     return (
       <span
         className={cn("text-xs", {
-          "text-emerald-400": status === "connected",
-          "text-zinc-600": status === "disconnected",
-          "text-red-400": status === "error",
+          "text-emerald-400": p.status === "connected",
+          "text-zinc-600": p.status === "disconnected",
+          "text-red-400": p.status === "error",
         })}
+        title={p.error || undefined}
       >
-        {labels[status]}
+        {labels[p.status]}
       </span>
     );
   };
@@ -482,7 +486,7 @@ export function SettingsScreen() {
                           </Badge>
                           <div className="flex items-center gap-1.5">
                             {statusDot(provider.status)}
-                            {statusLabel(provider.status)}
+                            {statusLabel(provider)}
                           </div>
                         </div>
                       </div>

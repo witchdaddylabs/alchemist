@@ -11,6 +11,7 @@ export interface RecentSource {
 }
 
 const LAST_SOURCE_KEY = "alchemist_last_source";
+const RECENT_SOURCES_KEY = "alchemist_recent_sources";
 
 export function persistLastSource(source: RecentSource) {
   try {
@@ -22,6 +23,26 @@ export function persistLastSource(source: RecentSource) {
 
 export function clearLastSource() {
   localStorage.removeItem(LAST_SOURCE_KEY);
+}
+
+function loadRecentSources(): RecentSource[] {
+  try {
+    const raw = localStorage.getItem(RECENT_SOURCES_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.slice(0, 5) : [];
+  } catch {
+    localStorage.removeItem(RECENT_SOURCES_KEY);
+    return [];
+  }
+}
+
+function persistRecentSources(sources: RecentSource[]) {
+  try {
+    localStorage.setItem(RECENT_SOURCES_KEY, JSON.stringify(sources.slice(0, 5)));
+  } catch {
+    // localStorage might be full or disabled
+  }
 }
 
 export interface ChatMessage {
@@ -152,18 +173,22 @@ export const useAppStore = create<AppState>((set) => ({
   setSavedProviders: (providers) => set({ savedProviders: providers }),
 
   // Recent sources
-  recentSources: [],
+  recentSources: loadRecentSources(),
   addRecentSource: (source) =>
-    set((state) => ({
-      recentSources: [
+    set((state) => {
+      const recentSources = [
         source,
         ...state.recentSources.filter((s) => s.path !== source.path),
-      ].slice(0, 10),
-    })),
+      ].slice(0, 5);
+      persistRecentSources(recentSources);
+      return { recentSources };
+    }),
   removeRecentSource: (path) =>
-    set((state) => ({
-      recentSources: state.recentSources.filter((s) => s.path !== path),
-    })),
+    set((state) => {
+      const recentSources = state.recentSources.filter((s) => s.path !== path);
+      persistRecentSources(recentSources);
+      return { recentSources };
+    }),
 
   // Chat
   chatHistory: [],

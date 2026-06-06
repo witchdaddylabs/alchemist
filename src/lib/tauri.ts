@@ -6,6 +6,10 @@ export async function openVault(path: string) {
   return invoke<VaultSummary>("open_vault", { path });
 }
 
+export async function loadDemoDatabase(dbName: string) {
+  return invoke<VaultSummary>("load_demo_database", { dbName });
+}
+
 export async function getSchema(path: string) {
   return invoke<TableSchema[]>("get_schema", { path });
 }
@@ -160,6 +164,7 @@ export interface TableSchema {
   name: string;
   columns: ColumnSchema[];
   rowCount: number | null;
+  sampleRows?: Record<string, unknown>[];
 }
 
 export interface ColumnSchema {

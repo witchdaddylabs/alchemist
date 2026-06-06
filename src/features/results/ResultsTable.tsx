@@ -72,10 +72,10 @@ export function ResultsTable({ columns, rows, truncated, rowCount }: ResultsTabl
   };
 
   return (
-    <div className="space-y-2">
-      <div className="rounded-lg border border-white/[0.06] overflow-hidden">
-        <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
-          <Table>
+    <div className="space-y-2 min-w-0 max-w-full">
+      <div className="rounded-lg border border-white/[0.06] overflow-hidden min-w-0 max-w-full">
+        <div className="overflow-auto max-h-[400px] max-w-full">
+          <Table className="min-w-max">
             <TableHeader>
               <TableRow className="border-b border-white/[0.06] hover:bg-transparent">
                 <TableHead className="w-10 text-xs text-zinc-500 font-medium text-center">
@@ -121,7 +121,7 @@ export function ResultsTable({ columns, rows, truncated, rowCount }: ResultsTabl
                       <TableCell
                         key={`${ri}-${ci}`}
                         className={cn(
-                          "text-xs py-2.5 whitespace-nowrap max-w-[250px] truncate",
+                          "text-xs py-2.5 whitespace-nowrap max-w-[min(250px,60vw)] truncate",
                           row[ci] === null || row[ci] === undefined
                             ? "text-zinc-700 italic"
                             : "text-zinc-300"

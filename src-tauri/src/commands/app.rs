@@ -12,7 +12,44 @@ use crate::validate;
 
 #[tauri::command]
 pub fn open_vault(path: String) -> Result<VaultSummary, String> {
-    db::open_vault(&path).map_err(|e| e.to_string())
+    let extension = PathBuf::from(&path)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.to_lowercase())
+        .unwrap_or_default();
+
+    match extension.as_str() {
+        "csv" | "json" | "yaml" | "yml" => {
+            let imported_path = db::import_tabular_file(&path).map_err(|e| e.to_string())?;
+            let mut summary = db::open_vault(&imported_path).map_err(|e| e.to_string())?;
+            if let Some(name) = PathBuf::from(&path)
+                .file_name()
+                .and_then(|name| name.to_str())
+            {
+                summary.file_name = name.to_string();
+            }
+            Ok(summary)
+        }
+        _ => db::open_vault(&path).map_err(|e| e.to_string()),
+    }
+}
+
+#[tauri::command]
+pub fn load_demo_database(db_name: String) -> Result<VaultSummary, String> {
+    let file_name = match db_name.as_str() {
+        "easy-coven" => "alchemist_easy_coven.db",
+        "medium-shadow" => "alchemist_medium_shadow.db",
+        "hard-eternal" => "alchemist_hard_eternal.db",
+        _ => return Err(format!("Unknown demo database: {}", db_name)),
+    };
+
+    let project_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .map(|p| p.to_path_buf())
+        .ok_or_else(|| "Could not resolve project root".to_string())?;
+    let demo_path = project_root.join("test-data").join(file_name);
+
+    db::open_vault(&demo_path.to_string_lossy()).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

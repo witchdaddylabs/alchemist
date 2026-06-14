@@ -1,12 +1,13 @@
 import { useState, useCallback, useRef } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
-import { Database, Shield, WifiOff, UserX, FileWarning, Ghost } from "lucide-react";
+import { Database, Shield, WifiOff, UserX, FileWarning, Ghost, FlaskConical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { VaultCard } from "@/components/vault/VaultCard";
 import { useAppStore, type RecentSource } from "@/state/app-store";
 import {
   openVault,
+  loadDemoDatabase,
   discoverPalace,
   parseMempalace,
 } from "@/lib/tauri";
@@ -17,6 +18,30 @@ const featureBadges = [
   { label: "Read-Only", icon: Shield },
   { label: "No Account", icon: UserX },
   { label: "No Cloud API", icon: WifiOff },
+];
+
+const demoDatabases = [
+  {
+    id: "easy-coven",
+    name: "Easy Coven",
+    difficulty: "Easy",
+    summary: "4 tables · 15 rows",
+    description: "Witches, potions, customers, and transactions.",
+  },
+  {
+    id: "medium-shadow",
+    name: "Medium Shadow",
+    difficulty: "Medium",
+    summary: "5 tables · 18 rows",
+    description: "People, covens, contracts, ingredients, and transactions.",
+  },
+  {
+    id: "hard-eternal",
+    name: "Hard Eternal",
+    difficulty: "Hard",
+    summary: "5 tables · 25 rows",
+    description: "Entities, pacts, ledgers, artifacts, and transfers.",
+  },
 ];
 
 export function VaultScreen() {
@@ -41,14 +66,18 @@ export function VaultScreen() {
         filters: [
           {
             name: "Databases & Config",
-            extensions: ["db", "sqlite", "sqlite3", "yaml", "yml"],
+            extensions: ["db", "sqlite", "sqlite3", "csv", "json", "yaml", "yml"],
           },
           {
             name: "SQLite Database",
             extensions: ["db", "sqlite", "sqlite3"],
           },
           {
-            name: "YAML Config",
+            name: "Tabular Data",
+            extensions: ["csv", "json", "yaml", "yml"],
+          },
+          {
+            name: "MemPalace YAML",
             extensions: ["yaml", "yml"],
           },
         ],
@@ -81,6 +110,29 @@ export function VaultScreen() {
 
     setIsOpening(false);
   }, []);
+
+  const handleLoadDemo = useCallback(async (dbName: string) => {
+    setIsOpening(true);
+    setOpenError(null);
+
+    try {
+      const vault = await loadDemoDatabase(dbName);
+      const source: RecentSource = {
+        path: vault.path,
+        fileName: vault.fileName,
+        type: "sqlite",
+        openedAt: vault.openedAt,
+        summary: `${vault.tableCount} tables, ${formatBytes(vault.sizeBytes)}`,
+      };
+      addRecentSource(source);
+      setActiveSource(source);
+      setActiveView("workspace");
+    } catch (err) {
+      setOpenError(String(err));
+    }
+
+    setIsOpening(false);
+  }, [addRecentSource, setActiveSource, setActiveView]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -124,23 +176,37 @@ export function VaultScreen() {
     const lower = path.toLowerCase();
 
     if (lower.endsWith(".yaml") || lower.endsWith(".yml")) {
-      // MemPalace YAML
-      const palace = await parseMempalace(path);
-      const source: RecentSource = {
-        path,
-        fileName: path.split("/").pop() || path,
-        type: "mempalace",
-        openedAt: new Date().toISOString(),
-        summary: `${palace.totalWings} wings, ${palace.totalRooms} rooms, ${palace.totalDrawers} drawers`,
-      };
-      addRecentSource(source);
-      setActiveSource(source);
-      setActiveView("workspace");
-      return;
+      try {
+        const palace = await parseMempalace(path);
+        const looksLikePalace = palace.totalRooms > 0 || palace.totalDrawers > 0;
+        if (looksLikePalace) {
+          const source: RecentSource = {
+            path,
+            fileName: path.split("/").pop() || path,
+            type: "mempalace",
+            openedAt: new Date().toISOString(),
+            summary: `${palace.totalWings} wings, ${palace.totalRooms} rooms, ${palace.totalDrawers} drawers`,
+          };
+          addRecentSource(source);
+          setActiveSource(source);
+          setActiveView("workspace");
+          return;
+        }
+      } catch {
+        // Not a MemPalace YAML file; try tabular import below.
+      }
     }
 
     // Try ChromaDB directory (has chroma.sqlite3 inside)
-    if (!lower.endsWith(".db") && !lower.endsWith(".sqlite") && !lower.endsWith(".sqlite3")) {
+    if (
+      !lower.endsWith(".db") &&
+      !lower.endsWith(".sqlite") &&
+      !lower.endsWith(".sqlite3") &&
+      !lower.endsWith(".csv") &&
+      !lower.endsWith(".json") &&
+      !lower.endsWith(".yaml") &&
+      !lower.endsWith(".yml")
+    ) {
       // Could be a ChromaDB persistence directory
       try {
         const discovery = await discoverPalace(path);
@@ -158,12 +224,12 @@ export function VaultScreen() {
       } catch {
         // Not a ChromaDB directory either
         throw new Error(
-          `Unsupported file type. Please open a .db, .sqlite, .sqlite3, or .yaml file, or a ChromaDB persistence directory.`
+          `Unsupported file type. Please open a .db, .sqlite, .sqlite3, .csv, .json, .yaml, or .yml file, or a ChromaDB persistence directory.`
         );
       }
     }
 
-    // SQLite database
+    // SQLite database or imported tabular file
     try {
       const vault = await openVault(path);
       const source: RecentSource = {
@@ -272,7 +338,7 @@ export function VaultScreen() {
 
           {/* Drop hint */}
           <p className="text-xs text-zinc-500 mt-3 mb-8">
-            or drag and drop a .db / .sqlite / .yaml file — or click Load MemPalace to query your vault
+            or drag and drop .db / .sqlite / .csv / .json / .yaml data
           </p>
 
           {/* Error message */}
@@ -302,6 +368,47 @@ export function VaultScreen() {
                 </Badge>
               );
             })}
+          </div>
+        </div>
+
+        {/* Demo Databases */}
+        <div className="w-full max-w-3xl mb-8">
+          <h2 className="text-sm font-medium text-zinc-400 mb-3">
+            Demo Databases
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {demoDatabases.map((demo) => (
+              <button
+                key={demo.id}
+                type="button"
+                onClick={() => handleLoadDemo(demo.id)}
+                disabled={isOpening}
+                className={cn(
+                  "text-left rounded-lg border border-white/[0.08] bg-white/[0.03] p-4",
+                  "hover:border-violet-400/30 hover:bg-violet-500/[0.06] transition-colors",
+                  "disabled:opacity-60 disabled:cursor-not-allowed"
+                )}
+              >
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <FlaskConical className="w-4 h-4 text-violet-400 shrink-0" />
+                    <span className="text-sm font-medium text-zinc-200 truncate">
+                      {demo.name}
+                    </span>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className="h-5 px-1.5 text-[10px] rounded border-white/[0.1] text-zinc-400 bg-black/20"
+                  >
+                    {demo.difficulty}
+                  </Badge>
+                </div>
+                <p className="text-xs text-zinc-500 mb-2">{demo.summary}</p>
+                <p className="text-[11px] leading-relaxed text-zinc-600">
+                  {demo.description}
+                </p>
+              </button>
+            ))}
           </div>
         </div>
 

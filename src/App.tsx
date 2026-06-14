@@ -30,7 +30,7 @@ function App() {
       try {
         const palace = await parseMempalace();
         if (palace) {
-          const isChromaDb = palace.wings.length === 0 && palace.source_file.includes(".mempalace");
+          const isChromaDb = palace.wings.length === 0 && palace.sourceFile.includes(".mempalace");
           if (palace.wings.length > 0 || isChromaDb) {
             const source: RecentSource = {
               path: isChromaDb ? "~/.mempalace/palace/" : "~/.mempalace/",

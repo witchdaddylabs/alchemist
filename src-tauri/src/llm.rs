@@ -9,7 +9,7 @@ pub fn build_sql_prompt(
     schema_context: &[TableSchema],
     _max_tables: usize,
 ) -> String {
-    let schema_compact = format_schema_compact(schema_context);
+    let schema_compact = format_schema_context(schema_context);
     let table_names: Vec<&str> = schema_context.iter().map(|t| t.name.as_str()).collect();
     let table_list = table_names.join(", ");
 
@@ -23,11 +23,13 @@ pub fn build_sql_prompt(
 4. Return ONLY the raw SQL query. No explanations, no markdown, no backticks, no code fences.
 5. Always end with LIMIT 100.
 6. Never use any DML or DDL keywords.
+7. DO NOT invent column names, aliases may only be derived from real expressions.
+8. For COUNT/SUM/AVG/MIN/MAX or WHERE clauses, first choose a real table and a real listed column. If the requested metric or filter has no matching table/column, return: SELECT 'Question cannot be answered from the available schema' AS answer LIMIT 100;
 
 === AVAILABLE TABLES (use only these) ===
 {}
 
-=== DATABASE SCHEMA (use only these exact names) ===
+=== DATABASE SCHEMA WITH SAMPLE ROWS (use only these exact names) ===
 {}
 
 === EXAMPLES OF CORRECT vs INCORRECT === 
@@ -82,10 +84,7 @@ User question: {}
 }
 
 /// Build a prompt for MemPalace YAML structure queries.
-pub fn build_yaml_query_prompt(
-    question: &str,
-    palace_context: &MemPalaceStructure,
-) -> String {
+pub fn build_yaml_query_prompt(question: &str, palace_context: &MemPalaceStructure) -> String {
     let wings_preview: Vec<String> = palace_context
         .wings
         .iter()
@@ -151,10 +150,7 @@ pub fn parse_sql_from_response(response: &str) -> Option<String> {
 
     // Fallback: return the entire response, trimmed — but strip backticks if present
     let trimmed = response.trim();
-    let cleaned = trimmed
-        .trim_start_matches('`')
-        .trim_end_matches('`')
-        .trim();
+    let cleaned = trimmed.trim_start_matches('`').trim_end_matches('`').trim();
     if !cleaned.is_empty() && !contains_placeholder(cleaned) {
         Some(cleaned.to_string())
     } else {
@@ -228,13 +224,20 @@ pub fn parse_filters(response: &str) -> HashMap<String, String> {
 /// Detect the best query mode from a user question.
 pub fn detect_mode(question: &str) -> &'static str {
     let lower = question.to_lowercase();
-    if lower.contains("wing") || lower.contains("room") || lower.contains("drawer")
-        || lower.contains("palace") || lower.contains("structure")
-        || lower.contains("hierarchy") || lower.contains("mempalace")
+    if lower.contains("wing")
+        || lower.contains("room")
+        || lower.contains("drawer")
+        || lower.contains("palace")
+        || lower.contains("structure")
+        || lower.contains("hierarchy")
+        || lower.contains("mempalace")
     {
         "yaml_query"
-    } else if lower.contains("search") || lower.contains("find") || lower.contains("similar")
-        || lower.contains("relevant") || lower.contains("semantic")
+    } else if lower.contains("search")
+        || lower.contains("find")
+        || lower.contains("similar")
+        || lower.contains("relevant")
+        || lower.contains("semantic")
         || lower.contains("about ")
     {
         "vector_search"
@@ -245,14 +248,47 @@ pub fn detect_mode(question: &str) -> &'static str {
 
 // ── Internal helpers ──
 
-/// Format schema as a compact table→columns mapping.
-/// Does NOT include row counts or type details to keep the prompt focused and small.
-fn format_schema_compact(tables: &[TableSchema]) -> String {
+/// Format schema as table, column, row count, and sample-row context.
+fn format_schema_context(tables: &[TableSchema]) -> String {
     tables
         .iter()
         .map(|t| {
-            let cols: Vec<&str> = t.columns.iter().map(|c| c.name.as_str()).collect();
-            format!("  {}: {}", t.name, cols.join(", "))
+            let cols: Vec<String> = t
+                .columns
+                .iter()
+                .map(|c| {
+                    let mut details = if c.declared_type.is_empty() {
+                        c.name.clone()
+                    } else {
+                        format!("{} {}", c.name, c.declared_type)
+                    };
+                    if c.is_primary_key {
+                        details.push_str(" PRIMARY KEY");
+                    }
+                    if let Some(fk) = &c.foreign_key_target {
+                        details.push_str(&format!(" REFERENCES {}", fk));
+                    }
+                    details
+                })
+                .collect();
+            let row_count = t
+                .row_count
+                .map(|c| c.to_string())
+                .unwrap_or_else(|| "unknown".to_string());
+            let sample_rows = t
+                .sample_rows
+                .as_ref()
+                .filter(|rows| !rows.is_empty())
+                .and_then(|rows| serde_json::to_string(rows).ok())
+                .unwrap_or_else(|| "[]".to_string());
+
+            format!(
+                "  Table: {}\n    Row count: {}\n    Columns: {}\n    Sample rows: {}",
+                t.name,
+                row_count,
+                cols.join(", "),
+                sample_rows
+            )
         })
         .collect::<Vec<_>>()
         .join("\n")

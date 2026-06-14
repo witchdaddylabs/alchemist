@@ -19,6 +19,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             app::app_ping,
             app::open_vault,
+            app::load_demo_database,
             app::get_schema,
             app::run_query,
             app::validate_sql,

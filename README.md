@@ -91,6 +91,12 @@ npm install
 npm run tauri dev
 ```
 
+There is also a report-only duplicate audit helper for local folder trees:
+
+```bash
+npm run audit:duplicates -- --root "/path/to/folder"
+```
+
 ### Stack
 
 | Layer | What |

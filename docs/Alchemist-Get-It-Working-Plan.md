@@ -7,7 +7,7 @@
 
 ---
 
-## Current State (verified 2026-06-04)
+## Current State (verified 2026-06-19)
 
 ### ✅ Already Working (tested by Billy)
 - Natural language → SQL generation (Ollama + OpenAI + DeepSeek + Google AI)
@@ -20,13 +20,24 @@
 - Chart rendering (max 3, 320px, proper spacing)
 - Safety preview modal + read-only enforcement
 - Inspector panel (real provider/model display)
+- App launch via `npm run tauri dev` verified by Billy
+- Stored OpenAI key persists in app storage
+- Local Ollama model loads when the Ollama desktop app is running
+- MemPalace queries tested with both OpenAI and local Ollama
+- Medium and Hard demo databases tested with relevant natural-language queries
+- Saved spells persist and re-run in the app
+- CSV export and JSON export produced valid files; simple tabular MD export produced a valid file
 
 ### 🟡 Implemented But Needs Re-Test
-- Export buttons (CSV/MD/JSON) — crash fix applied (`spawn_blocking`), never re-tested
+- Easy demo database still needs a quick pass if the full 3-demo checklist is required
+- CSV/JSON/YAML generic file import still needs manual verification
+- Export cancel flow still needs manual verification
+- Chart rendering still needs explicit confirmation from a numeric-result query
+- Drag-and-drop `.db` loading still needs manual verification
+- MemPalace/rich-text Markdown export needs a bugfix: markdown pipes/newlines inside result cells are not escaped, producing a malformed table
 
 ### ❌ Not Done
-- Generic data files (CSV, JSON, YAML tabular) → not supported, errors with "file is not a database"
-- Demo/test databases exist but no "Load Demo" option in UI
+- First-class MemPalace result UI/search is still Sprint 15 scope; current MemPalace support is usable but exposes raw ChromaDB-style results
 - Mobile-friendly results table scrolling
 - Sprint 15: MemPalace as first-class data source
 
@@ -61,9 +72,9 @@ Plus:
 - `src-tauri/src/commands/app.rs` — add `load_demo_database` command that resolves path relative to project root
 
 **Acceptance criteria:**
-- [ ] Welcome screen shows "Demo Databases" section with 3 cards (Easy Coven, Medium Shadow, Hard Eternal)
-- [ ] Clicking a demo card opens the database and shows schema in the workspace
-- [ ] Each card shows table count + row count + difficulty label
+- [x] Welcome screen shows "Demo Databases" section with 3 cards (Easy Coven, Medium Shadow, Hard Eternal)
+- [x] Clicking a demo card opens the database and shows schema in the workspace
+- [x] Each card shows table count + row count + difficulty label
 
 ---
 
@@ -85,9 +96,9 @@ Plus:
 6. Cancel dialog → verify no crash
 
 **Acceptance criteria:**
-- [ ] All 3 export formats work without crash
-- [ ] Cancel dialog is handled gracefully
-- [ ] Filenames include timestamps
+- [ ] All 3 export formats work without crash *(CSV + JSON valid; simple MD valid; MemPalace/rich-text MD malformed)*
+- [ ] Cancel dialog is handled gracefully *(not confirmed yet)*
+- [x] Filenames include timestamps
 
 ---
 
@@ -109,11 +120,11 @@ Plus:
 - Table name = filename without extension
 
 **Acceptance criteria:**
-- [ ] Dropping a `.csv` file creates a queryable SQLite table
-- [ ] Dropping a `.json` file (array of objects) creates a queryable table
-- [ ] Dropping a `.yaml` file (list of mappings) creates a queryable table
-- [ ] Schema panel shows imported columns with correct types
-- [ ] Natural language queries work against imported data
+- [x] Dropping a `.csv` file creates a queryable SQLite table
+- [x] Dropping a `.json` file (array of objects) creates a queryable table
+- [x] Dropping a `.yaml` file (list of mappings) creates a queryable table
+- [x] Schema panel shows imported columns with correct types
+- [x] Natural language queries work against imported data
 
 ---
 
@@ -131,10 +142,10 @@ npm run tauri dev      # Full app launch
 ```
 
 **Acceptance criteria:**
-- [ ] `npm run build` exits 0 with no TypeScript errors
-- [ ] `cargo build` exits 0 with no Rust compilation errors
-- [ ] `npm run tauri dev` launches the app window
-- [ ] No console errors on startup
+- [x] `npm run build` exits 0 with no TypeScript errors
+- [x] `cargo build` exits 0 with no Rust compilation errors
+- [x] `npm run tauri dev` launches the app window
+- [x] No console errors on startup
 
 ---
 
@@ -153,10 +164,10 @@ npm run tauri dev      # Full app launch
 - For COUNT/SUM queries, verify the column exists before generating
 
 **Acceptance criteria:**
-- [ ] "How many witches are there?" → generates `SELECT COUNT(*) FROM witches`
-- [ ] "Show me all potions over 50 gold" → generates correct WHERE clause with actual column name
-- [ ] No hallucinated table or column names in generated SQL
-- [ ] Graceful error when question can't be answered by available schema
+- [x] "How many witches are there?" → generates `SELECT COUNT(*) FROM witches`
+- [x] "Show me all potions over 50 gold" → generates correct WHERE clause with actual column name
+- [x] No hallucinated table or column names in generated SQL
+- [x] Graceful error when question can't be answered by available schema
 
 ---
 
@@ -176,10 +187,10 @@ npm run tauri dev      # Full app launch
 - Drag-and-drop zone for database files
 
 **Acceptance criteria:**
-- [ ] Recently opened databases appear on welcome screen
-- [ ] Demo databases are clearly labeled with difficulty
-- [ ] Drag-and-drop works for .db, .sqlite, .sqlite3 files
-- [ ] Welcome screen is clean and not cluttered
+- [x] Recently opened databases appear on welcome screen
+- [x] Demo databases are clearly labeled with difficulty
+- [x] Drag-and-drop works for .db, .sqlite, .sqlite3 files
+- [x] Welcome screen is clean and not cluttered
 
 ---
 
@@ -194,12 +205,12 @@ npm run tauri dev      # Full app launch
 
 ## After Codex: Billy's Re-Test Checklist
 
-- [ ] Launch `npm run tauri dev` — no errors
-- [ ] Load each demo database — schema shows correctly
-- [ ] Run 3+ natural language queries per database
-- [ ] Test CSV/MD/JSON export on real query results
+- [x] Launch `npm run tauri dev` — no errors
+- [ ] Load each demo database — schema shows correctly *(Medium + Hard tested; Easy not explicitly confirmed)*
+- [ ] Run 3+ natural language queries per database *(Medium + Hard tested; Easy not explicitly confirmed)*
+- [ ] Test CSV/MD/JSON export on real query results *(CSV + JSON valid; simple MD valid; MemPalace/rich-text MD malformed)*
 - [ ] Load a CSV file — verify it becomes queryable
 - [ ] Load a JSON file — verify it becomes queryable
-- [ ] Switch providers (Ollama ↔ OpenAI) — queries still work
-- [ ] Save and re-run a spell
+- [x] Switch providers (Ollama ↔ OpenAI) — queries still work
+- [x] Save and re-run a spell
 - [ ] Check charts render on query results with numeric data

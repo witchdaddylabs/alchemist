@@ -31,3 +31,8 @@ coverage/
 
 # Tauri
 src-tauri/bin/
+
+# Exported query results (saved to the working dir during dev)
+alchemist-results-*.csv
+alchemist-results-*.json
+alchemist-results-*.md

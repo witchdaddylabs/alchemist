@@ -1,5 +1,6 @@
 pub mod errors;
 pub mod models;
+pub mod paths;
 pub mod db;
 pub mod validate;
 pub mod chroma;

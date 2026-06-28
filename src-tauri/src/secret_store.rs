@@ -1,17 +1,20 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
+#[cfg(target_os = "macos")]
 use std::process::Command;
 
-/// macOS Keychain integration for API keys with local fallback.
-/// Uses the `security` CLI tool (errors ignored to avoid prompts) + ~/.alchemist/secrets.json
-/// so keys survive without triggering keychain prompts.
+use crate::paths::user_home;
 
+/// API key storage with a cross-platform local fallback.
+/// On macOS it also mirrors keys into the Keychain via the `security` CLI (errors ignored to
+/// avoid prompts). Everywhere, keys are written to ~/.alchemist/secrets.json so they survive.
+
+#[cfg(target_os = "macos")]
 const KEYCHAIN_SERVICE: &str = "alchemist";
 
 fn secrets_path() -> PathBuf {
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
-    PathBuf::from(home).join(".alchemist").join("secrets.json")
+    user_home().join(".alchemist").join("secrets.json")
 }
 
 fn load_secrets() -> HashMap<String, String> {
@@ -35,7 +38,8 @@ fn save_secrets(secrets: &HashMap<String, String>) -> Result<(), String> {
 /// Store an API key.
 /// Tries keychain (silently ignores errors) and always writes to local ~/.alchemist/secrets.json using account as key.
 pub fn store_key(account: &str, password: &str) -> Result<(), String> {
-    // Keychain attempt - ignore errors completely to prevent prompts/popups
+    // Keychain attempt (macOS only) - ignore errors completely to prevent prompts/popups
+    #[cfg(target_os = "macos")]
     let _ = Command::new("security")
         .args([
             "add-generic-password",
@@ -58,7 +62,8 @@ pub fn store_key(account: &str, password: &str) -> Result<(), String> {
 /// Retrieve an API key.
 /// First tries keychain, falls back to local ~/.alchemist/secrets.json
 pub fn get_key(account: &str) -> Result<String, String> {
-    // Try keychain first (non-panicking)
+    // Try keychain first (macOS only, non-panicking)
+    #[cfg(target_os = "macos")]
     if let Ok(output) = Command::new("security")
         .args([
             "find-generic-password",
@@ -89,7 +94,8 @@ pub fn get_key(account: &str) -> Result<String, String> {
 
 /// Delete an API key from both keychain (best effort) and local secrets file.
 pub fn delete_key(account: &str) -> Result<(), String> {
-    // Keychain delete - ignore errors
+    // Keychain delete (macOS only) - ignore errors
+    #[cfg(target_os = "macos")]
     let _ = Command::new("security")
         .args([
             "delete-generic-password",

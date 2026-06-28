@@ -161,6 +161,18 @@ export function SettingsScreen() {
       // Check Ollama (no key needed)
       try {
         const health = await checkProvider("ollama", "http://localhost:11434", "llama3.2");
+
+        // If reachable, auto-pick an installed model so we never show a phantom
+        // default (e.g. "llama3.2") that the user hasn't actually pulled.
+        let installed: string[] = [];
+        if (health.reachable) {
+          try {
+            installed = await listModels("ollama", "http://localhost:11434", undefined);
+          } catch {
+            // Model list unavailable — keep existing model
+          }
+        }
+
         setProviders((prev) =>
           prev.map((p) =>
             p.id === "ollama"
@@ -168,6 +180,11 @@ export function SettingsScreen() {
                   ...p,
                   status: health.reachable ? "connected" : "disconnected",
                   lastChecked: health.reachable ? "Just now" : null,
+                  // Replace the model only if the current one isn't actually installed.
+                  model:
+                    installed.length > 0 && !installed.includes(p.model)
+                      ? installed[0]
+                      : p.model,
                 }
               : p
           )

@@ -493,8 +493,7 @@ fn sanitize_identifier(raw: &str) -> String {
 }
 
 fn imports_dir() -> Result<PathBuf, AppError> {
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
-    let path = PathBuf::from(home).join(".alchemist").join("imports");
+    let path = crate::paths::user_home().join(".alchemist").join("imports");
     std::fs::create_dir_all(&path)?;
     Ok(path)
 }

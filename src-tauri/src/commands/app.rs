@@ -10,6 +10,8 @@ use crate::palace;
 use crate::providers::{GeminiClient, OllamaClient, OpenAIClient};
 use crate::validate;
 
+const DEFAULT_OLLAMA_MODEL: &str = "llama3.2";
+
 #[tauri::command]
 pub fn open_vault(path: String) -> Result<VaultSummary, String> {
     let extension = PathBuf::from(&path)
@@ -55,11 +57,6 @@ pub fn load_demo_database(db_name: String) -> Result<VaultSummary, String> {
 #[tauri::command]
 pub fn get_schema(path: String) -> Result<Vec<TableSchema>, String> {
     db::get_schema(&path).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn run_query(path: String, sql: String) -> Result<QueryResult, String> {
-    db::run_query(&path, &sql).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -140,7 +137,7 @@ pub fn parse_mempalace(path: Option<String>) -> Result<MemPalaceStructure, Strin
 
 #[tauri::command]
 pub async fn check_ollama() -> Result<ProviderHealth, String> {
-    let client = OllamaClient::new("http://localhost:11434", "llama3.2");
+    let client = OllamaClient::new("http://localhost:11434", DEFAULT_OLLAMA_MODEL);
     client.check_health().await
 }
 
@@ -210,12 +207,13 @@ pub async fn generate_query(
     provider_type: Option<String>,
     provider_url: Option<String>,
     provider_model: Option<String>,
+    source_type: Option<String>,
 ) -> Result<GeneratedQuery, String> {
     let start = std::time::Instant::now();
-    let mode = llm::detect_mode(&question);
+    let mode = llm::mode_for_source(source_type.as_deref(), &question);
     let provider = provider_type.clone().unwrap_or_else(|| "ollama".to_string());
     let url = provider_url.unwrap_or_else(|| "http://localhost:11434".to_string());
-    let model = provider_model.unwrap_or_else(|| "llama3.2".to_string());
+    let model = provider_model.unwrap_or_else(|| DEFAULT_OLLAMA_MODEL.to_string());
 
     let prompt = match mode {
         "yaml_query" => {
@@ -333,7 +331,7 @@ pub fn get_provider_config() -> ProviderConfig {
     ProviderConfig {
         provider_type: "ollama".to_string(),
         ollama_url: "http://localhost:11434".to_string(),
-        ollama_model: "llama3.2:latest".to_string(),
+        ollama_model: format!("{}:latest", DEFAULT_OLLAMA_MODEL),
         openai_url: "https://api.openai.com/v1".to_string(),
         openai_model: "gpt-4o-mini".to_string(),
         has_openai_key: has_key,

@@ -32,7 +32,13 @@ fn save_secrets(secrets: &HashMap<String, String>) -> Result<(), String> {
     }
     let content = serde_json::to_string_pretty(secrets)
         .map_err(|e| format!("Failed to serialize secrets: {}", e))?;
-    fs::write(secrets_path(), content).map_err(|e| format!("Failed to save secrets: {}", e))
+    fs::write(secrets_path(), content).map_err(|e| format!("Failed to save secrets: {}", e))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = fs::set_permissions(secrets_path(), fs::Permissions::from_mode(0o600));
+    }
+    Ok(())
 }
 
 /// Store an API key.

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { DEFAULT_OLLAMA_MODEL } from "../lib/constants";
 
 export type DataSourceType = "sqlite" | "chromadb" | "mempalace" | null;
 
@@ -167,7 +168,7 @@ export const useAppStore = create<AppState>((set) => ({
   },
 
   // Provider
-  activeProvider: { type: "ollama", url: "http://localhost:11434", model: "llama3.2" },
+  activeProvider: { type: "ollama", url: "http://localhost:11434", model: DEFAULT_OLLAMA_MODEL },
   setActiveProvider: (config: ProviderConfigState) => set({ activeProvider: config }),
   savedProviders: {} as Record<string, ProviderConfigState>,
   setSavedProviders: (providers) => set({ savedProviders: providers }),

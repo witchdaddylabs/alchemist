@@ -10,6 +10,7 @@ import {
 import { useAppStore } from "@/state/app-store";
 import { checkProvider, listModels } from "@/lib/tauri";
 import { cn } from "@/lib/utils";
+import { DEFAULT_OLLAMA_MODEL } from "@/lib/constants";
 
 interface ProviderOption {
   id: string;
@@ -20,7 +21,7 @@ interface ProviderOption {
 }
 
 const DEFAULT_PROVIDERS: ProviderOption[] = [
-  { id: "ollama", label: "Ollama (Local)", type: "ollama", url: "http://localhost:11434", model: "llama3.2" },
+  { id: "ollama", label: "Ollama (Local)", type: "ollama", url: "http://localhost:11434", model: DEFAULT_OLLAMA_MODEL },
   { id: "openai", label: "OpenAI", type: "openai", url: "https://api.openai.com/v1", model: "gpt-4.1" },
   { id: "deepseek", label: "DeepSeek", type: "deepseek", url: "https://api.deepseek.com", model: "deepseek-v3-flash" },
   { id: "google-ai", label: "Google AI Studio", type: "google-ai", url: "https://generativelanguage.googleapis.com/v1beta", model: "gemini-2.5-flash" },

@@ -22,7 +22,6 @@ pub fn run() {
             app::open_vault,
             app::load_demo_database,
             app::get_schema,
-            app::run_query,
             app::validate_sql,
             app::validate_and_run,
             app::discover_palace,

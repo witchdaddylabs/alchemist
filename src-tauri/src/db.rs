@@ -368,6 +368,18 @@ fn sqlite_type_for_column(
     }
 }
 
+/// True only if `s` is a canonical integer literal (round-trips exactly).
+/// Rejects leading zeros ("007"), leading '+', and whitespace-padded forms.
+fn canonical_i64(s: &str) -> Option<i64> {
+    s.parse::<i64>().ok().filter(|i| i.to_string() == s)
+}
+
+/// True only if `s` is a canonical float literal (round-trips exactly).
+/// Preserves forms like "1.50" that would lose trailing zeros.
+fn canonical_f64(s: &str) -> Option<f64> {
+    s.parse::<f64>().ok().filter(|f| f.to_string() == s)
+}
+
 fn infer_value_type(value: &serde_json::Value) -> InferredType {
     match value {
         serde_json::Value::Number(n) => {
@@ -380,9 +392,9 @@ fn infer_value_type(value: &serde_json::Value) -> InferredType {
         serde_json::Value::Bool(_) => InferredType::Integer,
         serde_json::Value::String(s) => {
             let trimmed = s.trim();
-            if trimmed.parse::<i64>().is_ok() {
+            if canonical_i64(trimmed).is_some() {
                 InferredType::Integer
-            } else if trimmed.parse::<f64>().is_ok() {
+            } else if canonical_f64(trimmed).is_some() {
                 InferredType::Real
             } else {
                 InferredType::Text
@@ -419,9 +431,9 @@ fn json_value_to_sqlite(value: Option<&serde_json::Value>) -> rusqlite::types::V
             let trimmed = s.trim();
             if trimmed.is_empty() {
                 rusqlite::types::Value::Null
-            } else if let Ok(i) = trimmed.parse::<i64>() {
+            } else if let Some(i) = canonical_i64(trimmed) {
                 rusqlite::types::Value::Integer(i)
-            } else if let Ok(f) = trimmed.parse::<f64>() {
+            } else if let Some(f) = canonical_f64(trimmed) {
                 rusqlite::types::Value::Real(f)
             } else {
                 rusqlite::types::Value::Text(s.clone())
@@ -675,6 +687,43 @@ mod tests {
         assert_eq!(
             result.rows[0][0],
             serde_json::Value::String("Ember Lens".to_string())
+        );
+    }
+
+    #[test]
+    fn canonical_i64_rejects_non_forms() {
+        assert_eq!(canonical_i64("007"), None); // leading zero — data loss
+        assert_eq!(canonical_i64("+5"), None);   // leading plus — data loss
+        assert_eq!(canonical_i64(" 42"), None);  // whitespace-padded — data loss
+        assert_eq!(canonical_i64("42 "), None);  // trailing whitespace
+        assert_eq!(canonical_i64("abc"), None);  // non-numeric
+        assert_eq!(canonical_i64(""), None);     // empty
+    }
+
+    #[test]
+    fn canonical_i64_accepts_canonical() {
+        assert_eq!(canonical_i64("42"), Some(42));
+        assert_eq!(canonical_i64("-5"), Some(-5));
+        assert_eq!(canonical_i64("0"), Some(0));
+    }
+
+    #[test]
+    fn import_preserves_leading_zero_strings() {
+        let source = write_temp_file(
+            "agents.csv",
+            "id,name,code\n007,Bond,secret\n42,Holmes,detective\n",
+        );
+        let sqlite_path = import_tabular_file(&source).expect("import csv");
+        let result = run_query(
+            &sqlite_path,
+            "SELECT code FROM agents WHERE id = '007' LIMIT 100",
+        )
+        .expect("query");
+        assert_eq!(result.row_count, 1);
+        // "007" must survive as a string, not be coerced to integer 7
+        assert_eq!(
+            result.rows[0][0],
+            serde_json::Value::String("secret".to_string())
         );
     }
 }

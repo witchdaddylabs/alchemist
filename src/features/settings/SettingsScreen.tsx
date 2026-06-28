@@ -26,6 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAppStore, type PrivacyMode } from "@/state/app-store";
+import { DEFAULT_OLLAMA_MODEL } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { CloudConsentModal } from "@/features/settings/CloudConsentModal";
 import { checkProvider, listModels, storeApiKey, deleteApiKey, checkApiKey, saveConfig, loadConfig } from "@/lib/tauri";
@@ -52,7 +53,7 @@ const initialProviders: ProviderState[] = [
     type: "local",
     icon: <Brain className="w-5 h-5" />,
     status: "connected",
-    model: "llama3.2",
+    model: DEFAULT_OLLAMA_MODEL,
     url: "http://localhost:11434",
     lastChecked: "Just now",
   },
@@ -160,7 +161,7 @@ export function SettingsScreen() {
     const init = async () => {
       // Check Ollama (no key needed)
       try {
-        const health = await checkProvider("ollama", "http://localhost:11434", "llama3.2");
+        const health = await checkProvider("ollama", "http://localhost:11434", DEFAULT_OLLAMA_MODEL);
 
         // If reachable, auto-pick an installed model so we never show a phantom
         // default (e.g. "llama3.2") that the user hasn't actually pulled.

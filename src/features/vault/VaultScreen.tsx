@@ -100,16 +100,32 @@ export function VaultScreen() {
     setIsOpening(true);
     setOpenError(null);
 
-    const mempalacePath = "/Users/habibi/.mempalace/palace/chroma.sqlite3";
-
     try {
-      await openDataSource(mempalacePath);
-    } catch (err) {
-      setOpenError(String(err));
+      // Let the backend discover ~/.mempalace cross-platform (YAML config or ChromaDB).
+      const palace = await parseMempalace();
+      const isChromaDb = palace.wings.length === 0 && palace.sourceFile.includes(".mempalace");
+      if (palace.wings.length > 0 || isChromaDb) {
+        const source: RecentSource = {
+          path: palace.sourceFile,
+          fileName: "MemPalace",
+          type: isChromaDb ? "chromadb" : "mempalace",
+          openedAt: new Date().toISOString(),
+          summary: isChromaDb
+            ? "ChromaDB database"
+            : `${palace.totalWings} wings, ${palace.totalRooms} rooms, ${palace.totalDrawers} drawers`,
+        };
+        addRecentSource(source);
+        setActiveSource(source);
+        setActiveView("workspace");
+      } else {
+        setOpenError("No MemPalace found in ~/.mempalace on this machine.");
+      }
+    } catch {
+      setOpenError("No MemPalace found in ~/.mempalace on this machine.");
     }
 
     setIsOpening(false);
-  }, []);
+  }, [addRecentSource, setActiveSource, setActiveView]);
 
   const handleLoadDemo = useCallback(async (dbName: string) => {
     setIsOpening(true);

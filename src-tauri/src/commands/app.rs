@@ -360,8 +360,7 @@ pub fn delete_api_key(account: String) -> Result<(), String> {
 use std::path::PathBuf;
 
 fn data_dir() -> PathBuf {
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
-    PathBuf::from(home).join(".alchemist")
+    crate::paths::user_home().join(".alchemist")
 }
 
 #[tauri::command]

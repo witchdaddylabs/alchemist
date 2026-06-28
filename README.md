@@ -3,11 +3,12 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-purple.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-0.13.0-blue.svg)](CHANGELOG.md)
 [![macOS](https://img.shields.io/badge/macOS-13%2B-brightgreen.svg)](https://www.apple.com/macos)
+[![Windows](https://img.shields.io/badge/Windows-10%2F11-0078D6.svg)](https://www.microsoft.com/windows)
 [![Rust](https://img.shields.io/badge/Rust-1.80%2B-dea584.svg)](https://www.rust-lang.org)
 [![Tauri](https://img.shields.io/badge/Tauri-2-yellow.svg)](https://v2.tauri.app)
 [![Built by](https://img.shields.io/badge/built%20by-Witch%20Daddy%20Labs-8A4AFB.svg)](https://witchdaddylabs.com)
 
-> **Ask your local data what it knows.** A local-first macOS app that opens your databases, MemPalace, and config files — and lets you ask questions in plain English.
+> **Ask your local data what it knows.** A local-first desktop app for **macOS and Windows** that opens your databases, MemPalace, and config files — and lets you ask questions in plain English.
 
 <div align="center">
   <img src="docs/screenshots/vault-screen.png" alt="Alchemist vault screen" width="75%" />
@@ -38,7 +39,8 @@ Alchemist: SELECT COUNT(*) FROM users WHERE created_at >= date('now', '-30 days'
 | 📊 **Charts** | Results as bar, line, or pie charts — auto-detects numeric columns |
 | ✨ **Saved spells** | Name and reuse your best queries across sessions |
 | 🤖 **Your model, your rules** | Ollama (local), OpenAI, Google Gemini, DeepSeek — or any OpenAI-compatible provider |
-| 🔒 **Private by design** | No telemetry, no accounts, no cloud dependency. Keys in macOS Keychain |
+| 🔒 **Private by design** | No telemetry, no accounts, no cloud dependency. Your keys stay on your machine |
+| 💻 **Mac & Windows** | One app, both platforms — same witchy experience on macOS 13+ and Windows 10/11 |
 
 ---
 
@@ -46,9 +48,15 @@ Alchemist: SELECT COUNT(*) FROM users WHERE created_at >= date('now', '-30 days'
 
 ### Download
 
-Grab the latest DMG from [Releases](https://github.com/witchdaddylabs/alchemist/releases). Mount it, drag to Applications, open it.
+Grab the latest build for your computer from [Releases](https://github.com/witchdaddylabs/alchemist/releases) — no account, no sign-up, nothing to configure. Just download and open.
 
-*Requires macOS 13 (Ventura) or later. Apple Silicon or Intel.*
+**🪟 Windows 10 / 11**
+Download `Alchemist_x64-setup.exe`, double-click it, and click through the installer. Alchemist then lives in your Start menu, ready to go.
+
+**🍎 macOS 13+ (Ventura or later — Apple Silicon or Intel)**
+Download the `.dmg`, open it, and drag Alchemist into your Applications folder.
+
+*That's the whole setup. Open the app and you're ready for the next step.*
 
 ### Setup a provider
 
@@ -84,12 +92,21 @@ Alchemist needs an AI model to generate queries from your questions.
 
 ## 🛠️ Development
 
+Curious enough to run it from source — or build your own copy? You'll need [Node.js](https://nodejs.org) and [Rust](https://rustup.rs) installed first (on Windows, that also means the Microsoft C++ Build Tools — the Rust installer points you to them).
+
+**macOS / Linux:**
+
 ```bash
 git clone https://github.com/witchdaddylabs/alchemist.git
 cd alchemist
 npm install
 npm run tauri dev
 ```
+
+**Windows:** we've bundled a couple of double-click-friendly helper scripts so you don't have to memorise any commands:
+
+- **`run-windows.bat`** — launches the app. It checks you've got everything, installs what's missing, and opens Alchemist.
+- **`build-windows.ps1`** — builds your very own installer at `src-tauri/target/release/bundle/nsis/`.
 
 There is also a report-only duplicate audit helper for local folder trees:
 
@@ -127,7 +144,8 @@ src-tauri/src/                # Rust backend
 ├── palace.rs                 # MemPalace YAML parser
 ├── llm.rs                    # Prompt builder, query generation
 ├── providers/                # Ollama, OpenAI, Gemini clients
-├── secret_store.rs           # macOS Keychain
+├── secret_store.rs           # API key storage (macOS Keychain + local fallback)
+├── paths.rs                  # Cross-platform home/data paths
 ├── validate.rs               # sqlparser-rs safety checks
 ├── models.rs                 # Shared type contracts
 ├── errors.rs                 # Error types
@@ -140,7 +158,7 @@ src-tauri/src/                # Rust backend
 
 - **Read-only by design** — SQLite opened with `SQLITE_OPEN_READONLY`
 - **SQL validation** — every query parsed by `sqlparser-rs`: blocks writes, multi-statements, dangerous pragmas
-- **Keychain storage** — API keys live in macOS Keychain, never in plaintext files
+- **Keys stay local** — on macOS your API keys live in the system Keychain; on Windows they're kept in your private user folder (`%USERPROFILE%\.alchemist`). Either way, they never leave your machine
 - **No telemetry** — zero analytics, crash reporting, or network calls to WDL servers
 - **Open source** — MIT licensed. Build it yourself if you want
 

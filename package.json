@@ -8,6 +8,8 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
+    "start:win": "tauri dev",
+    "build:win": "tauri build",
     "audit:duplicates": "node tools/drive-duplicate-audit.mjs"
   },
   "dependencies": {

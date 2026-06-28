@@ -195,26 +195,27 @@ pub fn discover_and_parse(path: Option<&str>) -> Result<MemPalaceStructure, AppE
     }
 
     // Try YAML config files first
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/Users/habibi".to_string());
-    let yaml_candidates = vec![
-        format!("{}/.mempalace/mempalace.yaml", home),
-        format!("{}/.mempalace/mempalace.yml", home),
-        format!("{}/.mempalace/config.yaml", home),
-        format!("{}/.mempalace/config.yml", home),
-        format!("{}/.mempalace/palace.yaml", home),
-        format!("{}/.mempalace/palace.yml", home),
+    let mempalace_dir = crate::paths::user_home().join(".mempalace");
+    let yaml_candidates = [
+        "mempalace.yaml",
+        "mempalace.yml",
+        "config.yaml",
+        "config.yml",
+        "palace.yaml",
+        "palace.yml",
     ];
 
-    for candidate in &yaml_candidates {
-        if Path::new(candidate).exists() {
-            return parse_palace_yaml(candidate);
+    for name in yaml_candidates {
+        let candidate = mempalace_dir.join(name);
+        if candidate.exists() {
+            return parse_palace_yaml(&candidate.to_string_lossy());
         }
     }
 
     // Fall back: try ChromaDB at ~/.mempalace/palace/
-    let chroma_dir = format!("{}/.mempalace/palace", home);
-    let chroma_db = format!("{}/chroma.sqlite3", chroma_dir);
-    if Path::new(&chroma_db).exists() {
+    let chroma_dir = mempalace_dir.join("palace");
+    let chroma_db = chroma_dir.join("chroma.sqlite3");
+    if chroma_db.exists() {
         // MemPalace is stored as a ChromaDB. Return a basic structure
         // so the frontend can auto-discover and show it as a data source.
         return Ok(MemPalaceStructure {
@@ -222,7 +223,7 @@ pub fn discover_and_parse(path: Option<&str>) -> Result<MemPalaceStructure, AppE
             total_wings: 0,
             total_rooms: 0,
             total_drawers: 0,
-            source_file: chroma_dir,
+            source_file: chroma_dir.to_string_lossy().into_owned(),
         });
     }
 

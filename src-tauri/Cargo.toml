@@ -1,6 +1,6 @@
 [package]
 name = "alchemist"
-version = "0.13.0"
+version = "0.35.0"
 description = "Alchemist — local data intelligence tool"
 authors = ["Witch Daddy Labs"]
 edition = "2021"

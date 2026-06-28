@@ -14,10 +14,6 @@ export async function getSchema(path: string) {
   return invoke<TableSchema[]>("get_schema", { path });
 }
 
-export async function runQuery(path: string, sql: string) {
-  return invoke<QueryResult>("run_query", { path, sql });
-}
-
 export async function validateSql(sql: string) {
   return invoke<ValidatedQuery>("validate_sql", { sql });
 }
@@ -101,6 +97,7 @@ export async function generateQuery(params: {
   providerType?: string;
   providerUrl?: string;
   providerModel?: string;
+  sourceType?: string;
 }) {
   return invoke<GeneratedQuery>("generate_query", {
     question: params.question,
@@ -109,6 +106,7 @@ export async function generateQuery(params: {
     providerType: params.providerType ?? null,
     providerUrl: params.providerUrl ?? null,
     providerModel: params.providerModel ?? null,
+    sourceType: params.sourceType ?? null,
   });
 }
 

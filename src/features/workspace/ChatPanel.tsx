@@ -25,6 +25,21 @@ function formatFileName(ext: string): string {
   return `alchemist-results-${ts}.${ext}`;
 }
 
+function csvCell(v: unknown): string {
+  const s = String(v ?? "");
+  if (s.includes(",") || s.includes('"') || s.includes("\n") || s.includes("\r")) {
+    const escaped = s.replace(/"/g, '""');
+    return `"${escaped}"`;
+  }
+  return s;
+}
+
+function mdCell(v: unknown): string {
+  const s = String(v ?? "");
+  const escaped = s.replace(/\|/g, "\\|");
+  return escaped.replace(/\r\n/g, "<br>").replace(/\r/g, "<br>").replace(/\n/g, "<br>");
+}
+
 async function exportResults(
   results: QueryResultData,
   format: "csv" | "markdown" | "json"
@@ -49,18 +64,8 @@ async function exportResults(
   }
 
   if (format === "csv") {
-    const header = results.columns.join(",");
-    const rows = results.rows.map((row) =>
-      row
-        .map((v) => {
-          const s = String(v ?? "");
-          if (s.includes(",") || s.includes('"') || s.includes("\n")) {
-            return `"${s.replace(/"/g, '""')}"`;
-          }
-          return s;
-        })
-        .join(",")
-    );
+    const header = results.columns.map(csvCell).join(",");
+    const rows = results.rows.map((row) => row.map(csvCell).join(","));
     const content = [header, ...rows].join("\n");
     try {
       await saveFile(content, formatFileName("csv"));
@@ -71,13 +76,10 @@ async function exportResults(
   }
 
   if (format === "markdown") {
-    const header = `| ${results.columns.join(" | ")} |`;
+    const header = `| ${results.columns.map(mdCell).join(" | ")} |`;
     const separator = `| ${results.columns.map(() => "---").join(" | ")} |`;
     const rows = results.rows.map(
-      (row) =>
-        `| ${row
-          .map((v) => String(v ?? "").replace(/\|/g, "\\|"))
-          .join(" | ")} |`
+      (row) => `| ${row.map(mdCell).join(" | ")} |`
     );
     const content = [header, separator, ...rows].join("\n");
     try {
@@ -177,6 +179,7 @@ export function ChatPanel() {
         providerType: activeProvider.type,
         providerUrl: activeProvider.url,
         providerModel: activeProvider.model,
+        sourceType: useAppStore.getState().dataSourceType ?? undefined,
       });
 
       if (result.sql) {
@@ -319,8 +322,8 @@ export function ChatPanel() {
     setCurrentResults(null);
 
     try {
-      const { runQuery } = await import("@/lib/tauri");
-      const results = await runQuery(src.path, sql);
+      const { validateAndRun } = await import("@/lib/tauri");
+      const results = await validateAndRun(src.path, sql);
 
       const queryResult: QueryResultData = {
         columns: results.columns,

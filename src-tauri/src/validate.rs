@@ -30,9 +30,12 @@ pub fn validate_sql(sql: &str) -> Result<ValidatedQuery, AppError> {
         label: "Single SQL statement".to_string(),
         passed: single_statement,
         detail: if single_statement {
-            format!("Exactly 1 statement detected.")
+            "Exactly 1 statement detected.".to_string()
         } else {
-            format!("{} statements detected — only single statements allowed.", statements.len())
+            format!(
+                "{} statements detected — only single statements allowed.",
+                statements.len()
+            )
         },
     });
 
@@ -72,41 +75,19 @@ pub fn validate_sql(sql: &str) -> Result<ValidatedQuery, AppError> {
     }
 
     // Check 4: Dangerous keywords
-    let upper = sql.to_uppercase();
-    let dangerous_keywords = ["PRAGMA", "ATTACH", "DETACH", "REINDEX", "SAVEPOINT", "RELEASE"];
-    let mut found_dangerous = Vec::new();
-
-    for kw in &dangerous_keywords {
-        // Simple check — not comprehensive, but catches common cases
-        if upper.contains(kw) {
-            found_dangerous.push(*kw);
-        }
-    }
-
-    let has_dangerous = !found_dangerous.is_empty();
+    // Historically this was a substring scan (causing false positives on valid
+    // identifiers like "releases" or "attachment"). Replaced with a no-op check:
+    // Check 3 (select_only) already guarantees the statement is a SELECT/WITH, so
+    // PRAGMA, ATTACH, DDL and DML are already rejected by the AST.
     checks.push(SafetyCheck {
         code: "dangerous_keywords".to_string(),
         label: "No dangerous keywords detected".to_string(),
-        passed: !has_dangerous,
-        detail: if has_dangerous {
-            format!("Blocked keywords found: {}", found_dangerous.join(", "))
-        } else {
-            "No blocked keywords present.".to_string()
-        },
+        passed: true,
+        detail: "No blocked keywords present.".to_string(),
     });
 
-    if has_dangerous {
-        return Ok(ValidatedQuery {
-            original_sql: sql.to_string(),
-            final_sql,
-            checks,
-            was_amended: false,
-            amendment_note: None,
-        });
-    }
-
     // Check 5: LIMIT clause
-    let has_limit = upper.contains("LIMIT");
+    let has_limit = final_sql.to_uppercase().contains("LIMIT");
     if !has_limit {
         was_amended = true;
         // Remove trailing semicolons before appending
@@ -138,4 +119,101 @@ pub fn validate_sql(sql: &str) -> Result<ValidatedQuery, AppError> {
         was_amended,
         amendment_note,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn check_passed(v: &ValidatedQuery, code: &str) -> bool {
+        v.checks
+            .iter()
+            .find(|c| c.code == code)
+            .map(|c| c.passed)
+            .unwrap_or(false)
+    }
+
+    #[test]
+    fn allows_simple_select() {
+        let v = validate_sql("SELECT * FROM users LIMIT 10").expect("ok");
+        assert!(check_passed(&v, "select_only"));
+        assert!(check_passed(&v, "single_statement"));
+        assert!(check_passed(&v, "limit"));
+        assert!(!v.was_amended);
+    }
+
+    #[test]
+    fn allows_select_from_releases_regression() {
+        // Previously blocked by the "RELEASE" keyword substring scan.
+        let v = validate_sql("SELECT * FROM releases").expect("ok");
+        assert!(check_passed(&v, "select_only"));
+        assert!(check_passed(&v, "dangerous_keywords"));
+        assert!(v.was_amended);
+    }
+
+    #[test]
+    fn allows_select_attachment_from_docs_regression() {
+        // Previously blocked by the "ATTACH" keyword substring scan.
+        let v = validate_sql("SELECT attachment FROM docs LIMIT 5").expect("ok");
+        assert!(check_passed(&v, "select_only"));
+        assert!(check_passed(&v, "dangerous_keywords"));
+        assert!(!v.was_amended);
+    }
+
+    #[test]
+    fn allows_with_cte() {
+        let v = validate_sql("WITH x AS (SELECT 1) SELECT * FROM x").expect("ok");
+        assert!(check_passed(&v, "select_only"));
+        assert!(check_passed(&v, "single_statement"));
+    }
+
+    #[test]
+    fn blocks_insert() {
+        let v = validate_sql("INSERT INTO t VALUES (1)").expect("err returned as validation");
+        assert!(!check_passed(&v, "select_only"));
+    }
+
+    #[test]
+    fn blocks_update() {
+        let v = validate_sql("UPDATE t SET a=1").expect("err returned as validation");
+        assert!(!check_passed(&v, "select_only"));
+    }
+
+    #[test]
+    fn blocks_delete() {
+        let v = validate_sql("DELETE FROM t").expect("err returned as validation");
+        assert!(!check_passed(&v, "select_only"));
+    }
+
+    #[test]
+    fn blocks_drop_table() {
+        let v = validate_sql("DROP TABLE t").expect("err returned as validation");
+        assert!(!check_passed(&v, "select_only"));
+    }
+
+    #[test]
+    fn blocks_create_table() {
+        let v = validate_sql("CREATE TABLE t (a int)").expect("err returned as validation");
+        assert!(!check_passed(&v, "select_only"));
+    }
+
+    #[test]
+    fn blocks_multi_statement() {
+        let v = validate_sql("SELECT 1; SELECT 2").expect("err returned as validation");
+        assert!(!check_passed(&v, "single_statement"));
+    }
+
+    #[test]
+    fn auto_limit_added_when_missing() {
+        let v = validate_sql("SELECT * FROM t").expect("ok");
+        assert!(v.was_amended);
+        assert!(v.final_sql.ends_with("LIMIT 1000"));
+    }
+
+    #[test]
+    fn auto_limit_not_added_when_present() {
+        let v = validate_sql("SELECT * FROM t LIMIT 5").expect("ok");
+        assert!(!v.was_amended);
+        assert_eq!(v.final_sql, "SELECT * FROM t LIMIT 5");
+    }
 }

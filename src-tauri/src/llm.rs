@@ -1,5 +1,4 @@
 use regex::Regex;
-use std::collections::HashMap;
 
 use crate::models::{MemPalaceStructure, TableSchema};
 
@@ -198,29 +197,6 @@ pub fn parse_search_terms(response: &str) -> Vec<String> {
     vec![response.trim().to_string()]
 }
 
-/// Parse metadata filters from a vector search response.
-pub fn parse_filters(response: &str) -> HashMap<String, String> {
-    let mut filters = HashMap::new();
-    let filters_re = Regex::new(r"(?i)FILTERS:\s*(.+?)(?:\nSEARCH_TERMS|\Z)").ok();
-    if let Some(re) = &filters_re {
-        if let Some(caps) = re.captures(response) {
-            let filters_str = caps.get(1).unwrap().as_str();
-            for line in filters_str.lines() {
-                let line = line.trim();
-                if line.eq_ignore_ascii_case("none") || line.is_empty() {
-                    continue;
-                }
-                if let Some(eq_pos) = line.find('=') {
-                    let key = line[..eq_pos].trim().to_string();
-                    let value = line[eq_pos + 1..].trim().to_string();
-                    filters.insert(key, value);
-                }
-            }
-        }
-    }
-    filters
-}
-
 /// Detect the best query mode from a user question.
 pub fn detect_mode(question: &str) -> &'static str {
     let lower = question.to_lowercase();
@@ -243,6 +219,17 @@ pub fn detect_mode(question: &str) -> &'static str {
         "vector_search"
     } else {
         "sql"
+    }
+}
+
+/// Choose query mode from the active data source, falling back to keyword
+/// detection when the source type is unknown/absent.
+pub fn mode_for_source(source_type: Option<&str>, question: &str) -> &'static str {
+    match source_type {
+        Some("sqlite") => "sql",
+        Some("chromadb") => "vector_search",
+        Some("mempalace") => "yaml_query",
+        _ => detect_mode(question),
     }
 }
 
@@ -292,4 +279,47 @@ fn format_schema_context(tables: &[TableSchema]) -> String {
         })
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sqlite_source_overrides_keyword_routing() {
+        // "find all witches" would route to vector_search by keyword, but on a
+        // SQLite source it must go to SQL.
+        assert_eq!(
+            mode_for_source(Some("sqlite"), "find all witches"),
+            "sql"
+        );
+        // "show the structure" would route to yaml_query by keyword, but on
+        // SQLite it must also be SQL.
+        assert_eq!(
+            mode_for_source(Some("sqlite"), "show the structure"),
+            "sql"
+        );
+    }
+
+    #[test]
+    fn chromadb_source_routes_to_vector() {
+        assert_eq!(
+            mode_for_source(Some("chromadb"), "list tables"),
+            "vector_search"
+        );
+    }
+
+    #[test]
+    fn mempalace_source_routes_to_yaml() {
+        assert_eq!(
+            mode_for_source(Some("mempalace"), "anything"),
+            "yaml_query"
+        );
+    }
+
+    #[test]
+    fn unknown_source_falls_back_to_keyword() {
+        // When the source type is unknown/absent, behaviour matches detect_mode.
+        assert_eq!(mode_for_source(None, "find documents"), "vector_search");
+    }
 }

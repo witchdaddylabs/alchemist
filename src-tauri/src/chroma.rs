@@ -127,8 +127,7 @@ pub fn search_documents(
     // Actually, the FTS5 table maps docid to embedding_metadata rowid
     // Let me check the FTS5 content table structure
     
-    let sql = format!(
-        r#"SELECT
+    let sql = r#"SELECT
             efs.rowid,
             efs.string_value,
             em.id AS embed_id,
@@ -139,8 +138,7 @@ pub fn search_documents(
         JOIN embeddings emb ON emb.id = em.id
         WHERE embedding_fulltext_search MATCH ?
         ORDER BY rank
-        LIMIT ?"#
-    );
+        LIMIT ?"#.to_string();
 
     let mut stmt = conn.prepare(&sql)?;
     let results: Vec<SearchResult> = stmt
@@ -276,10 +274,8 @@ fn get_embedding_metadata(conn: &Connection, embed_id: i64) -> Result<std::colle
         Ok((key, value))
     })?;
 
-    for row in rows {
-        if let Ok((key, value)) = row {
-            map.insert(key, value);
-        }
+    for (key, value) in rows.flatten() {
+        map.insert(key, value);
     }
 
     Ok(map)

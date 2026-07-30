@@ -1,4 +1,5 @@
 use crate::models;
+use std::str::FromStr;
 mod google;
 
 pub use google::GeminiClient;
@@ -19,13 +20,17 @@ impl QueryMode {
             QueryMode::YamlQuery => "yaml_query",
         }
     }
+}
 
-    pub fn from_str(s: &str) -> Self {
-        match s.to_lowercase().as_str() {
+impl FromStr for QueryMode {
+    type Err = std::convert::Infallible;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s.to_lowercase().as_str() {
             "vector_search" | "vector" | "chroma" => QueryMode::VectorSearch,
             "yaml_query" | "yaml" | "palace" => QueryMode::YamlQuery,
             _ => QueryMode::Sql,
-        }
+        })
     }
 }
 

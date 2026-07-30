@@ -1,3 +1,7 @@
+//! API key storage with a cross-platform local fallback.
+//! On macOS it also mirrors keys into the Keychain via the `security` CLI (errors ignored to
+//! avoid prompts). Everywhere, keys are written to ~/.alchemist/secrets.json so they survive.
+
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
@@ -5,10 +9,6 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use crate::paths::user_home;
-
-/// API key storage with a cross-platform local fallback.
-/// On macOS it also mirrors keys into the Keychain via the `security` CLI (errors ignored to
-/// avoid prompts). Everywhere, keys are written to ~/.alchemist/secrets.json so they survive.
 
 #[cfg(target_os = "macos")]
 const KEYCHAIN_SERVICE: &str = "alchemist";

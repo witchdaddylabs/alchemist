@@ -71,17 +71,17 @@ fn parse_rooms(rooms_raw: &serde_yaml::Value) -> (Vec<RoomStructure>, usize) {
     for (room_name, room_value) in items {
         if let Some(rv) = room_value.as_mapping() {
             let keywords: Vec<String> = rv
-                .get(&serde_yaml::Value::from("keywords"))
+                .get(serde_yaml::Value::from("keywords"))
                 .and_then(|v| v.as_sequence())
                 .map(|seq| seq.iter().filter_map(|v| v.as_str().map(String::from)).collect())
                 .unwrap_or_default();
             let entities: Vec<String> = rv
-                .get(&serde_yaml::Value::from("entities"))
+                .get(serde_yaml::Value::from("entities"))
                 .and_then(|v| v.as_sequence())
                 .map(|seq| seq.iter().filter_map(|v| v.as_str().map(String::from)).collect())
                 .unwrap_or_default();
 
-            let drawers_raw = rv.get(&serde_yaml::Value::from("drawers"));
+            let drawers_raw = rv.get(serde_yaml::Value::from("drawers"));
             let mut drawers = Vec::new();
             if let Some(ds) = drawers_raw.and_then(|v| v.as_sequence()) {
                 for dv in ds {
@@ -91,7 +91,7 @@ fn parse_rooms(rooms_raw: &serde_yaml::Value) -> (Vec<RoomStructure>, usize) {
             raw_count += drawers.len();
 
             let explicit_count = rv
-                .get(&serde_yaml::Value::from("drawer_count"))
+                .get(serde_yaml::Value::from("drawer_count"))
                 .and_then(|v| v.as_i64())
                 .map(|c| c as usize);
 
